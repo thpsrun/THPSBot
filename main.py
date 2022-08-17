@@ -741,4 +741,5 @@ async def wipe_cache():
     loadjson.write(json.dumps(wipejson))
     loadjson.close()
 
+
 client.run(configdiscord["distoken"])
