@@ -290,6 +290,10 @@ async def start_srcom():
     submissions = json.load(loadjson)
     loadjson.close()
 
+    cachejson = open("./json/cache.json", "r")
+    runcache = json.load(cachejson)
+    cachejson.close()
+
     games = requests.get("https://speedrun.com/api/v1/series/tonyhawk/games?max=50").json()["data"]
 
     for game in games:
@@ -298,7 +302,7 @@ async def start_srcom():
         for lookup in queue:
             breaker = 0
             for submissionkey in submissions["Submitted"]:
-                if submissionkey["id"] == lookup["id"]:
+                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] == runcache["Runs"]):
                     breaker = 1
                     break
             
@@ -358,10 +362,6 @@ async def start_srcom():
     submissions = json.load(loadjson)
     loadjson.close()
 
-    cachejson = open("./json/cache.json", "r")
-    runcache = json.load(cachejson)
-    cachejson.close()
-
     for key in submissions["Submitted"]:
         runid = key["id"]
         messageid = key["messageid"]
@@ -374,7 +374,7 @@ async def start_srcom():
             check = 0
 
         try:
-            if (check == "verified" or check == "rejected" or check == 0) and runid not in runcache["Runs"]:
+            if check == "verified" or check == "rejected" or check == 0:
                 if check == "verified":
                     print("--- {0} has been approved!".format(runid))
                     approval = srapproval.execute(runid)
@@ -588,19 +588,22 @@ async def start_side_srcom():
     sidegames = json.load(loadsidegamejson)
     loadsidegamejson.close()
 
+    cachejson = open("./json/cache.json", "r")
+    runcache = json.load(cachejson)
+    cachejson.close()
+
     for game in sidegames["Games"]:
         queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["gameid"])).json()["data"]
         for lookup in queue:
             breaker = 0
             secondbreaker = 1
             for submissionkey in submissions["Submitted"]:
-                if submissionkey["id"] == lookup["id"]:
+                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] == runcache["Runs"]):
                     breaker = 1
                     break
             
             runlookup = requests.get("https://speedrun.com/api/v1/users/{0}/personal-bests?embed=game".format(lookup["players"][0]["id"])).json()["data"]
             
-
             if breaker == 0:
                 for run in runlookup:
                     gamename = run["game"]["data"]["names"]["international"]
@@ -633,10 +636,6 @@ async def start_side_srcom():
     submissions = json.load(loadjson)
     loadjson.close()
 
-    cachejson = open("./json/cache.json", "r")
-    runcache = json.load(cachejson)
-    cachejson.close()
-
     for key in submissions["Submitted"]:
         runid = key["id"]
 
@@ -647,7 +646,7 @@ async def start_side_srcom():
             check = 0
 
         try:
-            if (check == "verified" or check == "rejected" or check == 0) and runid not in runcache["Runs"]:
+            if check == "verified" or check == "rejected" or check == 0:
                 if check == "verified":
                     print("--- {0} has been approved!".format(runid))
                     approval = srapproval.execute(runid)
