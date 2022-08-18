@@ -302,7 +302,7 @@ async def start_srcom():
         for lookup in queue:
             breaker = 0
             for submissionkey in submissions["Submitted"]:
-                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] == runcache["Runs"]):
+                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] in runcache["Runs"]):
                     breaker = 1
                     break
             
@@ -598,7 +598,7 @@ async def start_side_srcom():
             breaker = 0
             secondbreaker = 1
             for submissionkey in submissions["Submitted"]:
-                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] == runcache["Runs"]):
+                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] in runcache["Runs"]):
                     breaker = 1
                     break
             
