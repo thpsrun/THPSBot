@@ -300,9 +300,12 @@ async def start_srcom():
         queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["id"])).json()["data"]
         
         for lookup in queue:
+            if lookup["id"] in runcache["Runs"]:
+                break
+
             breaker = 0
             for submissionkey in submissions["Submitted"]:
-                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] in runcache["Runs"]):
+                if submissionkey["id"] == lookup["id"]:
                     breaker = 1
                     break
             
@@ -595,10 +598,13 @@ async def start_side_srcom():
     for game in sidegames["Games"]:
         queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["gameid"])).json()["data"]
         for lookup in queue:
+            if lookup["id"] in runcache["Runs"]:
+                break
+
             breaker = 0
             secondbreaker = 1
             for submissionkey in submissions["Submitted"]:
-                if (submissionkey["id"] == lookup["id"]) or (submissionkey["id"] in runcache["Runs"]):
+                if submissionkey["id"] == lookup["id"]:
                     breaker = 1
                     break
             
