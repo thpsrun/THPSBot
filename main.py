@@ -275,7 +275,7 @@ async def start_livestream():
         errormsg = str(traceback.print_exc())
         await errorchannel.send(errormsg)
 
-@tasks.loop(minutes=10)
+@tasks.loop(minutes=30)
 async def start_srcom():
     errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
@@ -290,19 +290,12 @@ async def start_srcom():
     submissions = json.load(loadjson)
     loadjson.close()
 
-    cachejson = open("./json/cache.json", "r")
-    runcache = json.load(cachejson)
-    cachejson.close()
-
     games = requests.get("https://speedrun.com/api/v1/series/tonyhawk/games?max=50").json()["data"]
 
     for game in games:
         queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["id"])).json()["data"]
         
         for lookup in queue:
-            if lookup["id"] in runcache["Runs"]:
-                break
-
             breaker = 0
             for submissionkey in submissions["Submitted"]:
                 if submissionkey["id"] == lookup["id"]:
@@ -516,15 +509,6 @@ async def start_srcom():
                         print("--- {0} is an obsolete submission.".format(runid))
                 else:
                     print("--- {0} has been rejected or deleted...".format(runid))
-
-
-                loadjson = open("./json/cache.json", "r")
-                cachelist = json.load(loadjson)
-                cachelist["Runs"].append(runid)
-                loadjson.close()
-                loadjson = open("./json/cache.json", "w")
-                loadjson.write(json.dumps(cachelist))
-                loadjson.close()
                 
                 del key["id"]
                 del key["verifyid"]
@@ -574,7 +558,7 @@ async def start_srcom():
     onlinejson.write(submissions)
     onlinejson.close()
 
-@tasks.loop(minutes=10)
+@tasks.loop(minutes=30)
 async def start_side_srcom():
     errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
@@ -591,16 +575,9 @@ async def start_side_srcom():
     sidegames = json.load(loadsidegamejson)
     loadsidegamejson.close()
 
-    cachejson = open("./json/cache.json", "r")
-    runcache = json.load(cachejson)
-    cachejson.close()
-
     for game in sidegames["Games"]:
         queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["gameid"])).json()["data"]
         for lookup in queue:
-            if lookup["id"] in runcache["Runs"]:
-                break
-
             breaker = 0
             secondbreaker = 1
             for submissionkey in submissions["Submitted"]:
@@ -716,14 +693,6 @@ async def start_side_srcom():
                         print("--- {0} is an obsolete submission.".format(runid))
                 else:
                     print("--- {0} has been rejected or deleted...".format(runid))
-                
-                loadjson = open("./json/cache.json", "r")
-                cachelist = json.load(loadjson)
-                cachelist["Runs"].append(runid)
-                loadjson.close()
-                loadjson = open("./json/cache.json", "w")
-                loadjson.write(json.dumps(cachelist))
-                loadjson.close()
 
                 del key["id"]
                 del key["wrseconds"]
@@ -738,13 +707,6 @@ async def start_side_srcom():
 
     onlinejson.write(submissions)
     onlinejson.close()
-
-@tasks.loop(hours=12)
-async def wipe_cache():
-    loadjson = open("./json/cache.json", "w")
-    wipejson = {"Runs":[]}
-    loadjson.write(json.dumps(wipejson))
-    loadjson.close()
 
 
 client.run(configdiscord["distoken"])
