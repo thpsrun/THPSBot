@@ -47,6 +47,7 @@ v1.4.2
 --------
 v1.4.3
 - Added a secondary cache that logs runids for every approved speedrun to reduce duplicates.
+- Fixed an issue where all ILs were being associated with the THPS4 ILs Mod role.
 --------
 --------
 --------
