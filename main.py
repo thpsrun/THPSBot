@@ -337,7 +337,7 @@ async def start_srcom():
                 embed.set_footer(text=configdiscord["botver"])
                 embed.set_thumbnail(url=unapprovedrun["gcover"])
 
-                if "IL" in title:
+                if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]):
                     verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
                 else:
                     verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
