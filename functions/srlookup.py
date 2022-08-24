@@ -26,11 +26,11 @@ def execute(lookup,type):
         rundate = runinfo["submitted"]
 
         if runinfo["players"]["data"][0]["twitch"] != None:
-                playerttv = runinfo["players"]["data"][0]["twitch"]["uri"].replace("https://www.twitch.tv/","")
+            playerttv = runinfo["players"]["data"][0]["twitch"]["uri"].replace("https://www.twitch.tv/","")
 
-                specialcharacters = "!@#$%^&*()-+?=,<>/"
-                if any(c in specialcharacters for c in playerttv):
-                    playerttv = 0
+            specialcharacters = "!@#$%^&*()-+?=,<>/"
+            if any(c in specialcharacters for c in playerttv):
+                playerttv = 0
         else:
             playerttv = 0
 

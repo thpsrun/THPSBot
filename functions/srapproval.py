@@ -22,7 +22,7 @@ def execute(lookup):
                 place = run["place"]
                 pbsec = run["run"]["times"]["primary_t"]
                 try:
-                    verifydate = run["status"]["verify-date"]
+                    verifydate = run["run"]["status"]["verify-date"]
                 except KeyError:
                     verifydate = 0
 
