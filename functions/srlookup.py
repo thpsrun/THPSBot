@@ -23,6 +23,8 @@ def execute(lookup,type):
         playername = runinfo["players"]["data"][0]["names"]["international"]
         playerpic = runinfo["players"]["data"][0]["assets"]["image"]["uri"]
 
+        rundate = runinfo["submitted"]
+
         if runinfo["players"]["data"][0]["twitch"] != None:
                 playerttv = runinfo["players"]["data"][0]["twitch"]["uri"].replace("https://www.twitch.tv/","")
 
@@ -75,8 +77,6 @@ def execute(lookup,type):
         else: runtype = "(IGT)"
         runtime = str(datetime.timedelta(seconds=runtime))
         if "." in runtime: runtime = runtime[:-3]
-        
-        rundate = datetime.datetime.fromisoformat(runinfo["submitted"].replace("Z","")).strftime("%B %-d, %Y @ %-H:%M:%-S") + " GMT"
 
         try:
             if lvlid != "NoILFound":

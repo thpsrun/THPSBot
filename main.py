@@ -166,6 +166,7 @@ async def change_status():
 @tasks.loop(minutes=5)
 async def start_livestream():
     errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
+    configspeedrun = config["SpeedrunCom"]
 
     try:
         gettime = time.localtime()
@@ -215,9 +216,11 @@ async def start_livestream():
                     embed.set_image(url=online[4])
                     grabmessage = await streamchannel.send(embed=embed)
 
+                    verify = await streamchannel.send("<@&{0}>".format(configspeedrun["Stream"]))
+
                     onlinejson = open("./json/online.json", "r")
                     onlinelist = json.load(onlinejson)
-                    jsonupdate = {"username":online[0],"messageid":grabmessage.id}
+                    jsonupdate = {"username":online[0],"messageid":grabmessage.id,"alert":verify.id}
                     onlinelist["Online"].append(jsonupdate)
                     onlinejson.close()
 
@@ -238,6 +241,7 @@ async def start_livestream():
                 print("--- {0} has gone offline... Removing embed...".format(username))
                 del key["username"]
                 del key["messageid"]
+                del key["alert"]
 
                 messageid = int(messageid)
 
@@ -319,17 +323,17 @@ async def start_srcom():
                     embed=discord.Embed(
                         title=title,
                         url=unapprovedrun["link"],
-                        description="{0} in {1} {2}\nSubmitted: {3}".format(unapprovedrun["cname"],unapprovedrun["time"],unapprovedrun["runtype"],unapprovedrun["date"]),
+                        description="{0} in {1} {2}".format(unapprovedrun["cname"],unapprovedrun["time"],unapprovedrun["runtype"]),
                         color=random.randint(0, 0xFFFFFF),
-                        timestamp=datetime.datetime.utcnow()
+                        timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
                     )
                 else:
                     embed=discord.Embed(
                         title=title,
                         url=unapprovedrun["link"],
-                        description="{0} {1} in {2} {3}\nSubmitted: {4}".format(unapprovedrun["cname"],unapprovedrun["subcatname"],unapprovedrun["time"],unapprovedrun["runtype"],unapprovedrun["date"]),
+                        description="{0} {1} in {2} {3}".format(unapprovedrun["cname"],unapprovedrun["subcatname"],unapprovedrun["time"],unapprovedrun["runtype"]),
                         color=random.randint(0, 0xFFFFFF),
-                        timestamp=datetime.datetime.utcnow()
+                        timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
                     )
 
                 if unapprovedrun["pfp"] == None: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
@@ -398,7 +402,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
                             else:
                                 embed=discord.Embed(
@@ -406,7 +410,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
 
                         elif approval[0] == 2:
@@ -416,7 +420,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
                             else:
                                 embed=discord.Embed(
@@ -424,7 +428,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
 
                         elif approval[0] == 3:
@@ -434,7 +438,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
                             else:
                                 embed=discord.Embed(
@@ -442,7 +446,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
 
                         else:
@@ -452,7 +456,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
                             else:
                                 embed=discord.Embed(
@@ -460,7 +464,7 @@ async def start_srcom():
                                     url=approval[4]["link"],
                                     description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
                                     color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.utcnow()
+                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                                 )
                 
                         if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
@@ -487,7 +491,7 @@ async def start_srcom():
                         
                         if key["wrseconds"] == "NoWR":
                             embed.add_field(name="No Previous WR", value="No Previous WR", inline=True)
-                        elif float(approval[3]) == float(key["wrseconds"]):
+                        elif float(approval[3]) - float(key["wrseconds"]) == 0:
                             embed.add_field(name="Tied WR", value = "Tied WR", inline=True)
                         elif approval[0] == 1:
                             embed.add_field(name="Last WR [Delta]", value="{0} [-{1}]".format(wtime,delta), inline=True)
@@ -645,7 +649,7 @@ async def start_side_srcom():
                                 url=approval[4]["link"],
                                 description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
                                 color=random.randint(0, 0xFFFFFF),
-                                timestamp=datetime.datetime.utcnow()
+                                timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                             )
                 
                         if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")

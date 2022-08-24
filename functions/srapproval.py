@@ -21,6 +21,7 @@ def execute(lookup):
             if runinfo["id"] == run["run"]["id"]:
                 place = run["place"]
                 pbsec = run["run"]["times"]["primary_t"]
+                verifydate = run["status"]["verify-date"]
 
                 ratio = 4.8284 * (wrsec/pbsec)
                 if runinfo["gname"] == "THPS - Category Extensions":
@@ -32,7 +33,7 @@ def execute(lookup):
                 
                 pass
 
-        try: return place,points,wrsec,pbsec,runinfo,runtotal
+        try: return place,points,wrsec,pbsec,runinfo,runtotal,verifydate
         except UnboundLocalError: return 0,0,0,0,0,0
     except:
         return str(traceback.print_exc())

@@ -44,10 +44,19 @@ v1.4.1
 --------
 v1.4.2
 - Fixed an issue where the API requests would max out at 20 when querying the Tony Hawk series endpoint.
+
 --------
 v1.4.3
 - Added a secondary cache that logs runids for every approved speedrun to reduce duplicates.
 - Fixed an issue where all ILs were being associated with the THPS4 ILs Mod role.
+
 --------
+v1.4.4
+- Added support for Discord members to opt into a "Strim" role to be notified of new streams.
+- Changed how the bot interprets times of prior WRs to reduce the amount of incorrect times.
+- Changed footer of submissions to reflect when the time was submitted and not time of posting.
+
 --------
+To do:
+() Change the timestamp text to show when it was submitted instead (makes the layout look more clean)
 --------
