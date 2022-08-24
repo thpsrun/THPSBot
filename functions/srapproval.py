@@ -21,7 +21,10 @@ def execute(lookup):
             if runinfo["id"] == run["run"]["id"]:
                 place = run["place"]
                 pbsec = run["run"]["times"]["primary_t"]
-                verifydate = run["status"]["verify-date"]
+                try:
+                    verifydate = run["status"]["verify-date"]
+                except KeyError:
+                    verifydate = 0
 
                 ratio = 4.8284 * (wrsec/pbsec)
                 if runinfo["gname"] == "THPS - Category Extensions":
