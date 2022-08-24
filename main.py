@@ -235,6 +235,7 @@ async def start_livestream():
         for key in checkonlinelist["Online"]:
             username = key["username"]
             messageid = key["messageid"]
+            alert = key["alert"]
 
             online = livestream.execute(username)
             if online == 0 or online == None:
@@ -244,9 +245,15 @@ async def start_livestream():
                 del key["alert"]
 
                 messageid = int(messageid)
+                verify = int(alert)
 
                 finalid = await streamchannel.fetch_message(messageid)
                 await finalid.delete()
+
+                verifyid = await streamchannel.fetch_message(verify)
+                await verifyid.delete()
+
+                
             else:
                 embed=discord.Embed(
                     title=online[2],

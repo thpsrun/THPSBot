@@ -58,6 +58,11 @@ v1.4.4
 - Changed the SRCOM API interval to 20 minutes (from 30).
 
 --------
+v1.4.5
+- Fixed an issue where the bot would not remove the stream ping after it has gone offline.
+- Fixed an issue where the bot would not properly parse verify-date from the /runs SRCOM API endpoint.
+
+--------
 To do:
 () Change the timestamp text to show when it was submitted instead (makes the layout look more clean)
 --------
