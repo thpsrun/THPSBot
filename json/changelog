@@ -55,6 +55,7 @@ v1.4.4
 - Added support for Discord members to opt into a "Strim" role to be notified of new streams.
 - Changed how the bot interprets times of prior WRs to reduce the amount of incorrect times.
 - Changed footer of submissions to reflect when the time was submitted and not time of posting.
+- Changed the SRCOM API interval to 20 minutes (from 30).
 
 --------
 To do:
