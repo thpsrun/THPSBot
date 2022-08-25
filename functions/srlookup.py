@@ -1,3 +1,4 @@
+from time import sleep
 import requests,datetime,traceback
 from requests.structures import CaseInsensitiveDict
 
@@ -78,13 +79,18 @@ def execute(lookup,type):
         runtime = str(datetime.timedelta(seconds=runtime))
         if "." in runtime: runtime = runtime[:-3]
 
-        try:
-            if lvlid != "NoILFound":
-                wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
-            else:
-                wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
-        except IndexError:
-            wrsecs = "NoWR"
+        attempts = 0
+        while attempts < 2:
+            try:
+                if lvlid != "NoILFound":
+                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
+                else:
+                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
+            except IndexError:
+                attempts += 1
+                sleep(1)
+        
+        if attempts == 2: wrsecs = "NoWR"
 
         if type == 1:
             offset = 0
