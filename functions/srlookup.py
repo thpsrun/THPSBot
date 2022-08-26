@@ -87,7 +87,7 @@ def execute(lookup,type):
                 else:
                     wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
 
-                if len(wrsecs) != 0: attempts = 2
+                if len(wrsecs) > 0: attempts = 2
             except IndexError:
                 attempts += 1
                 sleep(1)
