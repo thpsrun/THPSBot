@@ -23,6 +23,7 @@ def execute(lookup,type):
         playerid = runinfo["players"]["data"][0]["id"]
         playername = runinfo["players"]["data"][0]["names"]["international"]
         playerpic = runinfo["players"]["data"][0]["assets"]["image"]["uri"]
+        playerpb = runinfo["times"]["primary_t"]
 
         rundate = runinfo["submitted"]
 
@@ -82,12 +83,21 @@ def execute(lookup,type):
         attempts = 0
         while attempts < 2:
             try:
+                increment = 0
                 if lvlid != "NoILFound":
-                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
-                else:
-                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][0]["run"]["times"]["primary_t"]
+                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
 
-                if len(wrsecs) > 0: attempts = 2
+                    while wrsecs == playerpb:
+                        increment += 1
+                        wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
+                else:
+                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
+
+                    while wrsecs == playerpb:
+                        increment += 1
+                        wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
+
+                if wrsecs > 0: attempts = 3
             except IndexError:
                 attempts += 1
                 sleep(1)
@@ -132,7 +142,8 @@ def execute(lookup,type):
             "runtype":runtype,
             "variables":variables,
             "lbline":lbline,
-            "wrsecs":wrsecs
+            "wrsecs":wrsecs,
+            "pbsecs":playerpb
         }    
         return export
     except:
