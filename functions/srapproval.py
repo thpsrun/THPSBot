@@ -21,7 +21,11 @@ def execute(lookup):
                 except KeyError:
                     verifydate = 0
 
-                ratio = 4.8284 * (runinfo["wrsecs"]/runinfo["pbsecs"])
+                if runinfo["wrsecs"] == "NoWR":
+                    ratio = 4.8284 * (runinfo["pbsecs"]/runinfo["pbsecs"])
+                else:
+                    ratio = 4.8284 * (runinfo["wrsecs"]/runinfo["pbsecs"])
+                    
                 if runinfo["gname"] == "THPS - Category Extensions":
                     points = math.trunc(0.008 * exp(ratio) * 10)
                     if points > 10: points = 10
