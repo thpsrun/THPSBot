@@ -14,18 +14,18 @@ client = commands.Bot(command_prefix=configdiscord["prefix"], intents=intents, h
 @client.event
 async def on_ready():
     print('Logged in as {0.user}'.format(client))
-    #await change_status()
-    #if not start_livestream.is_running():
-    #    start_livestream.start()
+    await change_status()
+    if not start_livestream.is_running():
+        start_livestream.start()
 
-    #if not change_status.is_running():
-    #    change_status.start()
+    if not change_status.is_running():
+        change_status.start()
 
     if not start_srcom.is_running():
         start_srcom.start()
 
-    #if not start_side_srcom.is_running():
-    #    start_side_srcom.start()
+    if not start_side_srcom.is_running():
+        start_side_srcom.start()
 
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
