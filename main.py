@@ -490,7 +490,7 @@ async def start_srcom():
                                 delta = str(datetime.timedelta(seconds=(key["wrseconds"]) - approval[3]))
 
                         if approval[4]["lvlid"] != "NoILFound":
-                            if ("." in ctime) or ("." in delta):
+                            if "." in ctime:
                                 ctime = ctime[:-3]
                                 if key["wrseconds"] != "NoWR":
                                     wtime = wtime[:-3]
