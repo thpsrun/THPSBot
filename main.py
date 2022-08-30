@@ -286,7 +286,7 @@ async def start_livestream():
         errormsg = str(traceback.print_exc())
         await errorchannel.send(errormsg)
 
-@tasks.loop(minutes=20)
+@tasks.loop(minutes=30)
 async def start_srcom():
     errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
@@ -569,7 +569,7 @@ async def start_srcom():
     onlinejson.write(submissions)
     onlinejson.close()
 
-@tasks.loop(minutes=20)
+@tasks.loop(minutes=30)
 async def start_side_srcom():
     errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
