@@ -652,7 +652,7 @@ async def start_side_srcom():
                     
                     if approval[0] == 1:
                         embed=discord.Embed(
-                            title="NEW VERIFIED TIME FOR {0}".format(approval[4]["gname"].upper()),
+                            title="NEW VERIFIED TIME".format(approval[4]["gname"].upper()),
                             url=approval[4]["link"],
                             description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
                             color=random.randint(0, 0xFFFFFF),
