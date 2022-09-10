@@ -280,6 +280,7 @@ async def start_livestream():
             
         
         gettime = time.localtime()
+
         gettime = time.strftime("%H:%M:%S", gettime)
         print("[{0}] [TWITCH] Completed Twitch livestream checks...".format(gettime))
     except:
@@ -650,14 +651,13 @@ async def start_side_srcom():
                         break
                     
                     if approval[0] == 1:
-                        if approval[4]["subcatname"] == "(0)":
-                            embed=discord.Embed(
-                                title="NEW VERIFIED TIME FOR {0}".format(approval[4]["gname"].upper()),
-                                url=approval[4]["link"],
-                                description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
-                                color=random.randint(0, 0xFFFFFF),
-                                timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                            )
+                        embed=discord.Embed(
+                            title="NEW VERIFIED TIME FOR {0}".format(approval[4]["gname"].upper()),
+                            url=approval[4]["link"],
+                            description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
+                            color=random.randint(0, 0xFFFFFF),
+                            timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
+                        )
                 
                         if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
                         else: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url=approval[4]["pfp"])

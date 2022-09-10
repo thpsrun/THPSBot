@@ -69,6 +69,7 @@ v1.4.6
 - Fixed an issue where the delta against a current or past WR would sometimes be wrong.
 
 --------
+
 To do:
-() Change the timestamp text to show when it was submitted instead (makes the layout look more clean)
+() Users can register an emote that automatically appears when they PB.
 --------
