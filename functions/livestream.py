@@ -19,6 +19,10 @@ def execute(username):
                     streamgame  = i["game_name"]
                     if not streamgame in configtwitch["ttvgames"]:
                         return
+                    elif "Pokémon" in streamgame:
+                        return
+                    elif len(streamgame) == 0:
+                        return
 
                     streamtitle = i["title"]
                     streamtnail = i["thumbnail_url"].replace("{width}","1280").replace("{height}","720") + "?rand=" + str(int(time.time()))

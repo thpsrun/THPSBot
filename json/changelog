@@ -69,6 +69,8 @@ v1.4.6
 - Fixed an issue where the delta against a current or past WR would sometimes be wrong.
 
 --------
+v1.4.7
+- Added support for THPS4 and THPS1+2 CE IL boards.
 
 To do:
 () Users can register an emote that automatically appears when they PB.

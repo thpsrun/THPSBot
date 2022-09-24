@@ -18,14 +18,14 @@ async def on_ready():
     if not start_livestream.is_running():
         start_livestream.start()
 
-    if not change_status.is_running():
-        change_status.start()
+    #if not change_status.is_running():
+    #    change_status.start()
 
-    if not start_srcom.is_running():
-        start_srcom.start()
+    #if not start_srcom.is_running():
+    #    start_srcom.start()
 
-    if not start_side_srcom.is_running():
-        start_side_srcom.start()
+    #if not start_side_srcom.is_running():
+    #    start_side_srcom.start()
 
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
