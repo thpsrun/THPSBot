@@ -351,8 +351,6 @@ async def start_srcom():
 
                 if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]):
                     verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
-                elif ("IL" in title) and ("thpsce" in unapprovedrun["abbr"]):
-                    verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPSCEIL"]))
                 else:
                     verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
                 grabmessage = await submissionschannel.send(embed=embed)
