@@ -26,7 +26,7 @@ def execute(lookup):
                 else:
                     ratio = 4.8284 * (runinfo["wrsecs"]/runinfo["pbsecs"])
                     
-                if runinfo["gname"] == "THPS - Category Extensions":
+                if "Category Extensions" in runinfo["gname"]:
                     points = math.trunc(0.008 * exp(ratio) * 10)
                     if points > 10: points = 10
                 elif runinfo["lvlid"] != "NoILFound":
