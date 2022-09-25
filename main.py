@@ -18,14 +18,14 @@ async def on_ready():
     if not start_livestream.is_running():
         start_livestream.start()
 
-    #if not change_status.is_running():
-    #    change_status.start()
+    if not change_status.is_running():
+        change_status.start()
 
-    #if not start_srcom.is_running():
-    #    start_srcom.start()
+    if not start_srcom.is_running():
+        start_srcom.start()
 
-    #if not start_side_srcom.is_running():
-    #    start_side_srcom.start()
+    if not start_side_srcom.is_running():
+        start_side_srcom.start()
 
 @client.command()
 @commands.cooldown(1, 10, commands.BucketType.user)
@@ -349,7 +349,7 @@ async def start_srcom():
                 embed.set_footer(text=configdiscord["botver"])
                 embed.set_thumbnail(url=unapprovedrun["gcover"])
 
-                if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]):
+                if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]) and ("thps4ce" not in unapprovedrun["abbr"]):
                     verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
                 else:
                     verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
