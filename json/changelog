@@ -72,6 +72,13 @@ v1.4.6
 v1.4.7
 - Added support for THPS4 and THPS1+2 CE IL boards.
 
+--------
+v1.5 - The "Twitch Stream Lookups Don't Take Forever" Update
+- Added better error messages for troubleshooting purposes.
+- Changed how Twitch lookups were performed (instead of looking up for each user, it queries ALL approved games at once).
+
+- Fixed an issue where the bot could hang on Twitch lookups in rare circumstances.
+
 To do:
 () Users can register an emote that automatically appears when they PB.
 --------
