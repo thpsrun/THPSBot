@@ -1,41 +1,36 @@
-import configparser,traceback,time
+import configparser,time,traceback
 from twitchAPI.twitch import Twitch
 
-def execute(username):
+def execute(streamlist):
     config = configparser.ConfigParser()
     config.read("./config.ini")
     configtwitch = config["Twitch"]
+    gameslist = configtwitch["ttvids"]
+    gameslist = gameslist.replace("\n","").replace("[","").replace("]","").replace("\"","").split(',')
 
     ttvid = configtwitch["ttvid"]
     ttvtoken = configtwitch["ttvtoken"]
 
-    try: 
+    returnedjson = []
+
+    try:
         twitch = Twitch(ttvid,ttvtoken)
-        export = twitch.get_streams(user_login=username)["data"]
+        export = twitch.get_streams(game_id=gameslist)["data"]
 
         if len(export) != 0:
-            try:
-                for i in export:
-                    streamgame  = i["game_name"]
-                    if not streamgame in configtwitch["ttvgames"]:
-                        return
-                    elif "Pokémon" in streamgame:
-                        return
-                    elif len(streamgame) == 0:
-                        return
+            for stream in export:
+                for user in streamlist["Streams"]["Twitch"]:
+                    if stream["user_login"].casefold() in user["username"].casefold():
+                        streamtnail = stream["thumbnail_url"].replace("{width}","1280").replace("{height}","720") + "?rand=" + str(int(time.time()))        
+                        userexport = twitch.get_users(logins=stream["user_login"])["data"]
 
-                    streamtitle = i["title"]
-                    streamtnail = i["thumbnail_url"].replace("{width}","1280").replace("{height}","720") + "?rand=" + str(int(time.time()))
+                        json = {"title":stream["title"],"gname":stream["game_name"],"tnail":streamtnail,"user":userexport[0]["display_name"],"pfp":userexport[0]["profile_image_url"]}
+                        returnedjson.append(json)
+                        break
 
-                export1 = twitch.get_users(logins=username)["data"]
-
-                for i in export1:
-                    streamname  = i["display_name"]
-                    streampfp   = i["profile_image_url"]
-
-                return [streamname,streampfp,streamtitle,streamgame,streamtnail]        
-            except UnboundLocalError:
-                return str(traceback.print_exc())
-    except: 
+            return returnedjson
+        else:
+            return 0
+    except UnboundLocalError:
         print("--- Server error occurred... Skipping round...")
-        return 0
+        return str(traceback.print_exc()) 

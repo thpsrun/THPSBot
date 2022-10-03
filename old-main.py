@@ -1,4 +1,5 @@
-import discord,configparser,json,random,datetime,requests,time
+from ast import NotIn
+import discord,configparser,traceback,json,random,datetime,requests,time
 from commands import addtwitchstream,querystream,removetwitchstream,addsidegame,removesidegame,querysidegame
 from functions import livestream,srlookup,srapproval
 from discord.ext import tasks,commands
@@ -35,7 +36,7 @@ async def ping(ctx):
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def addstream(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
         try:
@@ -45,13 +46,14 @@ async def addstream(ctx,arg):
             elif check == 1:
                 await ctx.send('{0} was already in the stream list.'.format(arg))
         except:
-            await errorchannel.send("[ADDING] Twitch stream list error")
+            errormsg = str(traceback.print_exc())
+            await errorchannel.send(errormsg)
             await ctx.send('An error occurred when adding {0}.'.format(arg))
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def removestream(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
         try:
@@ -61,13 +63,14 @@ async def removestream(ctx,arg):
             elif check == 1:
                 await ctx.send('{0} was not found in the stream list'.format(arg))
         except:
-            await errorchannel.send("[REMOVE] Twitch stream list error")
+            errormsg = str(traceback.print_exc())
+            await errorchannel.send(errormsg)
             await ctx.send('An error occurred when removing {0}.'.format(arg))
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def query(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
         try:
@@ -77,13 +80,14 @@ async def query(ctx,arg):
             elif check == 1:
                 await ctx.send('{0} is not in the stream list.'.format(arg))
         except:
-            await errorchannel.send("[QUERY] Twitch stream list error")
+            errormsg = str(traceback.print_exc())
+            await errorchannel.send(errormsg)
             await ctx.send('An error occurred when querying {0}.'.format(arg))
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def addgame(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     if ctx.channel.name == "mods":
         try:
@@ -97,13 +101,14 @@ async def addgame(ctx,arg):
             else:
                 await ctx.send('Unknown error (Packle needs to check the logs')
         except:
-            await errorchannel.send("[ADDING] Side games list error")
+            errormsg = str(traceback.print_exc())
+            await errorchannel.send(errormsg)
             await ctx.send('An error occurred when querying {0}.'.format(arg))
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def removegame(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     if ctx.channel.name == "mods":
         try:
@@ -113,13 +118,14 @@ async def removegame(ctx,arg):
             elif check == 1:
                 await ctx.send('{0} was not found in the side games listing. Please make sure the abbreivation of the game is correct.'.format(arg))
         except:
-            await errorchannel.send("[REMOVE] Side games list error")
+            errormsg = str(traceback.print_exc())
+            await errorchannel.send(errormsg)
             await ctx.send('An error occurred when removing {0}.'.format(arg))
 
 @client.command()
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def querygames(ctx):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     if ctx.channel.name == "mods":
         try:
@@ -127,7 +133,8 @@ async def querygames(ctx):
             
             await ctx.send('The following games are in the side games listing: {0}'.format(check))
         except:
-            await errorchannel.send("[QUERY] Side gmaes list error")
+            errormsg = str(traceback.print_exc())
+            await errorchannel.send(errormsg)
             await ctx.send('An error occurred when querying the game list.')
 
 @client.event
@@ -138,7 +145,7 @@ async def on_command_error(ctx, error):
 
 @tasks.loop(minutes=60)
 async def change_status():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
     try:
         gamelist = configdiscord["statusmessage"]
         gamelist = gamelist.split(',')
@@ -149,7 +156,8 @@ async def change_status():
         print("[{0}] [BOT] Changing game status to {1}".format(gettime,gamelist[gamenum].replace('"',"").replace("]","").replace("[","").strip()))
         await client.change_presence(activity=discord.Game(name=gamelist[gamenum].replace('"',"").replace("]","").replace("[","").strip()))
     except:
-        await errorchannel.send("[STATUS] Status update error")
+        errormsg = str(traceback.print_exc())
+        await errorchannel.send(errormsg)
 
 ###########################################################################################################################################################################
 ###########################################################################################################################################################################
@@ -157,7 +165,7 @@ async def change_status():
 
 @tasks.loop(minutes=5)
 async def start_livestream():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
     configspeedrun = config["SpeedrunCom"]
 
     try:
@@ -175,59 +183,44 @@ async def start_livestream():
         checkonlinelist = json.load(checkjson)
         checkjson.close()
 
-        online = livestream.execute(streamlist)
+        for key in streamlist["Streams"]["Twitch"]:
+            username = key["username"]
 
-        if online == None or len(online) == 0:
-            pass
-        elif isinstance(online,str):
-            await errorchannel.send(online)
-        elif len(online) != 0:
-            for stream in online:
-                status = 0
-                for onlinekey in checkonlinelist["Online"]:
-                    onlineuser = onlinekey["username"]
-                    if stream["user"].casefold() == onlineuser.casefold():
-                        status = 1
-                        print("--- {0} is online... Updating embed...".format(onlineuser))
-                        
-                        messageid = int(onlinekey["messageid"])
+            breaker = 0
+            for onlinekey in checkonlinelist["Online"]:
+                onlineuser = onlinekey["username"]
+                if username.lower() == onlineuser.lower():
+                    breaker = 1
+                    print("--- {0} is online... Skipping...".format(username))
+                    break
 
-                        embed=discord.Embed(
-                            title=stream["title"],
-                            url="https://twitch.tv/"+stream["user"],
-                            description="[Click here to watch](https://twitch.tv/{0})".format(stream["user"]),
-                            color=random.randint(0, 0xFFFFFF),
-                            timestamp=datetime.datetime.utcnow()
-                        )
-                        embed.set_author(name=stream["user"]+" is live on Twitch!", url="https://twitch.tv/"+stream["user"], icon_url=stream["pfp"])
-                        embed.add_field(name="Game", value=stream["gname"], inline=True)
-                        embed.set_footer(text=configdiscord["botver"])
-                        embed.set_image(url=stream["tnail"])
+            if breaker == 0:
+                online = livestream.execute(username)
 
-                        editid = await streamchannel.fetch_message(messageid)
-                        await editid.edit(embed=embed)
-
-                        break
-
-                if status == 0:
+                if isinstance(livestream,str):
+                    await errorchannel.send(livestream)
+                    pass
+                if online == 0 or online == None:
+                    pass
+                else:
                     embed=discord.Embed(
-                        title=stream["title"],
-                        url="https://twitch.tv/"+stream["user"],
-                        description="[Click here to watch](https://twitch.tv/{0})".format(stream["user"]),
+                        title=online[2],
+                        url="https://twitch.tv/"+online[0],
+                        description="[Click here to watch](https://twitch.tv/{0})".format(online[0]),
                         color=random.randint(0, 0xFFFFFF),
                         timestamp=datetime.datetime.utcnow()
                     )
-                    embed.set_author(name=stream["user"]+" is live on Twitch!", url="https://twitch.tv/"+stream["user"], icon_url=stream["pfp"])
-                    embed.add_field(name="Game", value=stream["gname"], inline=True)
+                    embed.set_author(name=online[0]+" is live on Twitch!", url="https://twitch.tv/"+online[0], icon_url=online[1])
+                    embed.add_field(name="Game", value=online[3], inline=True)
                     embed.set_footer(text=configdiscord["botver"])
-                    embed.set_image(url=stream["tnail"])
-
+                    embed.set_image(url=online[4])
                     grabmessage = await streamchannel.send(embed=embed)
+
                     verify = await streamchannel.send("<@&{0}>".format(configspeedrun["Stream"]))
 
                     onlinejson = open("./json/online.json", "r")
                     onlinelist = json.load(onlinejson)
-                    jsonupdate = {"username":stream["user"],"messageid":grabmessage.id,"alert":verify.id}
+                    jsonupdate = {"username":online[0],"messageid":grabmessage.id,"alert":verify.id}
                     onlinelist["Online"].append(jsonupdate)
                     onlinejson.close()
 
@@ -244,13 +237,8 @@ async def start_livestream():
             messageid = key["messageid"]
             alert = key["alert"]
 
-            status = 0
-            for stream in online:
-                if stream["user"].casefold() == username.casefold():
-                    status = 1
-                    break
-
-            if status == 0:
+            online = livestream.execute(username)
+            if online == 0 or online == None:
                 print("--- {0} has gone offline... Removing embed...".format(username))
                 del key["username"]
                 del key["messageid"]
@@ -260,14 +248,33 @@ async def start_livestream():
                 verify = int(alert)
 
                 finalid = await streamchannel.fetch_message(messageid)
-                verifyid = await streamchannel.fetch_message(verify)
-                
                 await finalid.delete()
+
+                verifyid = await streamchannel.fetch_message(verify)
                 await verifyid.delete()
 
+                
+            else:
+                embed=discord.Embed(
+                    title=online[2],
+                    url="https://twitch.tv/"+online[0],
+                    description="[Click here to watch](https://twitch.tv/{0})".format(online[0]),
+                    color=random.randint(0, 0xFFFFFF),
+                    timestamp=datetime.datetime.utcnow()
+                )
+                embed.set_author(name=online[0]+" is live on Twitch!", url="https://twitch.tv/"+online[0], icon_url=online[1])
+                embed.add_field(name="Game", value=online[3], inline=True)
+                embed.set_footer(text=configdiscord["botver"])
+                embed.set_image(url=online[4])
+
+                editid = await streamchannel.fetch_message(messageid)
+                await editid.edit(embed=embed)
+
         onlinejson = open("./json/online.json", "w")
+
         checkonlinelist = json.dumps(checkonlinelist)
         checkonlinelist = checkonlinelist.replace('{}, ','').replace(', {}', '').replace('{}','').replace('\\','').replace('"{','').replace('}"','')
+
         onlinejson.write(checkonlinelist)
         onlinejson.close()
             
@@ -277,11 +284,12 @@ async def start_livestream():
         gettime = time.strftime("%H:%M:%S", gettime)
         print("[{0}] [TWITCH] Completed Twitch livestream checks...".format(gettime))
     except:
-        await errorchannel.send("[LIVESTREAM STATUS] An unknown error occurred")
+        errormsg = str(traceback.print_exc())
+        await errorchannel.send(errormsg)
 
 @tasks.loop(minutes=30)
 async def start_srcom():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     gettime = time.localtime()
     gettime = time.strftime("%H:%M:%S", gettime)
@@ -564,7 +572,7 @@ async def start_srcom():
 
 @tasks.loop(minutes=30)
 async def start_side_srcom():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(configdiscord["admin"]))
 
     gettime = time.localtime()
     gettime = time.strftime("%H:%M:%S", gettime)
