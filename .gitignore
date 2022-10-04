@@ -1,3 +1,6 @@
-.DS_Store
+functions/.DS_Store
+functions/__pycache__
+commands/.DS_Store
+commands/__pycache__
 config.ini
 __pychache__
