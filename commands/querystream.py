@@ -7,8 +7,6 @@ def main(arg):
 
     for key in streamlist["Streams"]["Twitch"]:
         username = key["username"]
-
-        if username.casefold() == arg.casefold():
-            return 0
+        if username.casefold() == arg.casefold(): return 0
 
     return 1

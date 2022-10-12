@@ -1,4 +1,4 @@
-import discord,configparser,json,random,datetime,requests,time
+import discord,configparser,json,random,datetime,requests,time,traceback,glob
 from commands import addtwitchstream,querystream,removetwitchstream,addsidegame,removesidegame,querysidegame
 from functions import livestream,srlookup,srapproval
 from discord.ext import tasks,commands
@@ -14,11 +14,26 @@ client = commands.Bot(command_prefix=configdiscord["prefix"], intents=intents, h
 async def on_ready():
     print('Logged in as {0.user}'.format(client))
     await change_status()
+
+    gettime = time.localtime()
+    gettime = time.strftime("%M", gettime)
+
+    if gettime != "30" or gettime != "0": print("[WAITING] SCRIPT BEGAN AT {0}... WAITING...".format(gettime))
+    while gettime != "30" or gettime != "0":
+        time.sleep(20)
+        gettime = time.localtime()
+        gettime = time.strftime("%M", gettime)
+        if gettime != "30" or gettime != "0": print("-- CURRENT MINUTE IS {0}... WAITING...".format(gettime))
+        if gettime == "30" or gettime == "0": print("-- 30 MINUTE INTERVAL HIT! RUNNING...".format(gettime))
+
     if not start_livestream.is_running():
         start_livestream.start()
 
     if not change_status.is_running():
         change_status.start()
+
+    if not change_pfp.is_running():
+        change_pfp.start()
 
     if not start_srcom.is_running():
         start_srcom.start()
@@ -140,16 +155,28 @@ async def on_command_error(ctx, error):
 async def change_status():
     errorchannel = await client.fetch_channel(int(configdiscord["error"]))
     try:
-        gamelist = configdiscord["statusmessage"]
-        gamelist = gamelist.split(',')
-        gamelistcount = len(gamelist) -1
-        gamenum = random.randint(0,gamelistcount)
-        gettime = time.localtime()
-        gettime = time.strftime("%H:%M:%S", gettime)
+        gamelist        = configdiscord["statusmessage"]
+        gamelist        = gamelist.split(',')
+        gamelistcount   = len(gamelist) -1
+        gamenum         = random.randint(0,gamelistcount)
+        gettime         = time.localtime()
+        gettime         = time.strftime("%H:%M:%S", gettime)
         print("[{0}] [BOT] Changing game status to {1}".format(gettime,gamelist[gamenum].replace('"',"").replace("]","").replace("[","").strip()))
         await client.change_presence(activity=discord.Game(name=gamelist[gamenum].replace('"',"").replace("]","").replace("[","").strip()))
     except:
         await errorchannel.send("[STATUS] Status update error")
+
+@tasks.loop(hours=24)
+async def change_pfp():
+    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    try:
+        pfp_list  = glob.glob("pfp/*")
+        pfp_count = len(pfp_list) -1
+        pfp_num   = random.randint(0,pfp_count)
+        with open(pfp_list[pfp_num], 'rb') as image:
+            await client.user.edit(avatar=image.read())
+    except:
+        await errorchannel.send("[PFP] PFP update error")
 
 ###########################################################################################################################################################################
 ###########################################################################################################################################################################
@@ -227,8 +254,7 @@ async def start_livestream():
 
                     onlinejson = open("./json/online.json", "r")
                     onlinelist = json.load(onlinejson)
-                    jsonupdate = {"username":stream["user"],"messageid":grabmessage.id,"alert":verify.id}
-                    onlinelist["Online"].append(jsonupdate)
+                    onlinelist["Online"].append({"username":stream["user"],"messageid":grabmessage.id,"alert":verify.id})
                     onlinejson.close()
 
                     onlinejson = open("./json/online.json","w")
@@ -277,6 +303,7 @@ async def start_livestream():
         gettime = time.strftime("%H:%M:%S", gettime)
         print("[{0}] [TWITCH] Completed Twitch livestream checks...".format(gettime))
     except:
+        print(traceback.format_exc())
         await errorchannel.send("[LIVESTREAM STATUS] An unknown error occurred")
 
 @tasks.loop(minutes=30)
@@ -314,27 +341,23 @@ async def start_srcom():
                     await errorchannel.send(unapprovedrun)
                     break
 
-                if unapprovedrun["lvlid"] == "NoILFound" or unapprovedrun["subcatname"] == "(0)": 
-                    title = unapprovedrun["gname"]
-                else:
-                    title = unapprovedrun["gname"] + " (IL)" 
+                if unapprovedrun["lvlid"] == "NoILFound" or unapprovedrun["subcatname"] == "(0)": title = unapprovedrun["gname"]
+                else: title = unapprovedrun["gname"] + " (IL)" 
+
+                embed = discord.Embed(
+                    title=title,
+                    url=unapprovedrun["link"],
+                    color=random.randint(0, 0xFFFFFF),
+                    timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
+                )
+                embed = embed.to_dict()
 
                 if unapprovedrun["subcatname"] == "(0)":
-                    embed=discord.Embed(
-                        title=title,
-                        url=unapprovedrun["link"],
-                        description="{0} in {1} {2}".format(unapprovedrun["cname"],unapprovedrun["time"],unapprovedrun["runtype"]),
-                        color=random.randint(0, 0xFFFFFF),
-                        timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
-                    )
+                    embed.update({"description": "{0} in {1} {2}".format(unapprovedrun["cname"],unapprovedrun["time"],unapprovedrun["runtype"])})
                 else:
-                    embed=discord.Embed(
-                        title=title,
-                        url=unapprovedrun["link"],
-                        description="{0} {1} in {2} {3}".format(unapprovedrun["cname"],unapprovedrun["subcatname"],unapprovedrun["time"],unapprovedrun["runtype"]),
-                        color=random.randint(0, 0xFFFFFF),
-                        timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
-                    )
+                    embed.update({"description": "{0} {1} in {2} {3}".format(unapprovedrun["cname"],unapprovedrun["subcatname"],unapprovedrun["time"],unapprovedrun["runtype"])})
+
+                embed = discord.Embed.from_dict(embed)
 
                 if unapprovedrun["pfp"] == None: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
                 else: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url=unapprovedrun["pfp"])
@@ -350,8 +373,7 @@ async def start_srcom():
                 onlinejson = open("./json/submissions.json", "r")
                 onlinelist = json.load(onlinejson)
 
-                jsonupdate = {"id":unapprovedrun["id"],"verifyid":verify.id,"messageid":grabmessage.id,"wrseconds":unapprovedrun["wrsecs"]}
-                onlinelist["Submitted"].append(jsonupdate)
+                onlinelist["Submitted"].append({"id":unapprovedrun["id"],"verifyid":verify.id,"messageid":grabmessage.id,"wrseconds":unapprovedrun["wrsecs"]})
                 onlinejson.close()
 
                 onlinejson = open("./json/submissions.json","w")
@@ -385,88 +407,53 @@ async def start_srcom():
                     
                     if approval[0] > 0:
                         if approval[4]["lvlid"] != "NoILFound" and approval[4]["lvlid"] == None:
-                            if approval[0] == 1:
-                                discordtitle = "NEW IL WORLD RECORD!"
-                            else:
-                                discordtitle = "NEW IL PERSONAL BEST!"
+                            if approval[0] == 1: discordtitle = "NEW IL WORLD RECORD!"
+                            else: discordtitle = "NEW IL PERSONAL BEST!"
                         else:
-                            if approval[0] == 1:
-                                discordtitle = "NEW WORLD RECORD!"
-                            else:
-                                discordtitle = "NEW PERSONAL BEST!"
+                            if approval[0] == 1: discordtitle = "NEW WORLD RECORD!"
+                            else: discordtitle = "NEW PERSONAL BEST!"
 
                         if approval[0] == 1:
+                            embed = discord.Embed(
+                                url=approval[4]["link"],
+                                color=random.randint(0, 0xFFFFFF),
+                                timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
+                            )
+                            embed = embed.to_dict()
+
                             if approval[4]["subcatname"] == "(0)":
-                                embed=discord.Embed(
-                                    title="\U0001f3c6 {0} \U0001f3c6".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "\U0001f3c6 {0} \U0001f3c6".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
                             else:
-                                embed=discord.Embed(
-                                    title="\U0001f3c6 {0} \U0001f3c6".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "\U0001f3c6 {0} \U0001f3c6".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
 
                         elif approval[0] == 2:
                             if approval[4]["subcatname"] == "(0)":
-                                embed=discord.Embed(
-                                    title="\U0001f948 {0} \U0001f948".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "\U0001f948 {0} \U0001f948".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
                             else:
-                                embed=discord.Embed(
-                                    title="\U0001f948 {0} \U0001f948".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "\U0001f948 {0} \U0001f948".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
 
                         elif approval[0] == 3:
                             if approval[4]["subcatname"] == "(0)":
-                                embed=discord.Embed(
-                                    title="\U0001f949 {0} \U0001f949".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "\U0001f949 {0} \U0001f949".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
                             else:
-                                embed=discord.Embed(
-                                    title="\U0001f949 {0} \U0001f949".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "\U0001f949 {0} \U0001f949".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
 
                         else:
                             if approval[4]["subcatname"] == "(0)":
-                                embed=discord.Embed(
-                                    title="{0}".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "{0}".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
                             else:
-                                embed=discord.Embed(
-                                    title="{0}".format(discordtitle),
-                                    url=approval[4]["link"],
-                                    description="{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"]),
-                                    color=random.randint(0, 0xFFFFFF),
-                                    timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
-                                )
+                                embed.update({"title": "{0}".format(discordtitle)})
+                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
                 
+                        embed = discord.Embed.from_dict(embed)
+
                         if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
                         else: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url=approval[4]["pfp"])
                         embed.add_field(name="Placing", value="{0} / {1}".format(approval[0],approval[5]), inline=True)
@@ -508,6 +495,7 @@ async def start_srcom():
 
                         embed.set_footer(text=configdiscord["botver"])
                         embed.set_thumbnail(url=approval[4]["gcover"])
+
                         await pbschannel.send(embed=embed)
                     else:
                         print("--- {0} is an obsolete submission.".format(runid))
@@ -541,8 +529,7 @@ async def start_srcom():
                             break
 
                     if streambreaker == 0:
-                        jsonupdate = {"username":approval[4]["pttv"].lower()}
-                        streamlist["Streams"]["Twitch"].append(jsonupdate)
+                        streamlist["Streams"]["Twitch"].append({"username":approval[4]["pttv"].lower()})
 
                         loadjson.close()
                         loadjson = open("./json/streamlist.json", "w")
@@ -611,8 +598,7 @@ async def start_side_srcom():
 
                 onlinejson = open("./json/sidesubmissions.json", "r")
                 onlinelist = json.load(onlinejson)
-                jsonupdate = {"id":unapprovedrun["id"],"wrseconds":unapprovedrun["wrsecs"]}
-                onlinelist["Submitted"].append(jsonupdate)
+                onlinelist["Submitted"].append({"id":unapprovedrun["id"],"wrseconds":unapprovedrun["wrsecs"]})
                 onlinejson.close()
 
                 onlinejson = open("./json/sidesubmissions.json","w")
@@ -627,10 +613,8 @@ async def start_side_srcom():
         runid = key["id"]
 
         print("--- Verifying status of {0}".format(runid))
-        try:
-            check = requests.get("https://speedrun.com/api/v1/runs/{0}".format(runid)).json()["data"]["status"]["status"]
-        except:
-            check = 0
+        try: check = requests.get("https://speedrun.com/api/v1/runs/{0}".format(runid)).json()["data"]["status"]["status"]
+        except: check = 0
 
         try:
             if check == "verified" or check == "rejected" or check == 0:
@@ -643,7 +627,7 @@ async def start_side_srcom():
                         break
                     
                     if approval[0] == 1:
-                        embed=discord.Embed(
+                        embed = discord.Embed(
                             title="NEW VERIFIED TIME".format(approval[4]["gname"].upper()),
                             url=approval[4]["link"],
                             description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
@@ -691,6 +675,7 @@ async def start_side_srcom():
 
                         embed.set_footer(text=configdiscord["botver"])
                         embed.set_thumbnail(url=approval[4]["gcover"])
+
                         await nonpbschannel.send(embed=embed)
                     else:
                         print("--- {0} is an obsolete submission.".format(runid))
@@ -710,6 +695,5 @@ async def start_side_srcom():
 
     onlinejson.write(submissions)
     onlinejson.close()
-
 
 client.run(configdiscord["distoken"])

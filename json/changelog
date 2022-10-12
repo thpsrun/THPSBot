@@ -4,20 +4,16 @@ v1.3 - The "About Time" Update
 - Added a comments field to the approved run embed that only displays if a comment exists.
 - Added workflow to check if a user is already whitelisted in livestreams and adds them if they do not appear.
 - Added "The Simpsons Skateboarding," "Matt Hoffman's Pro BMX," "Matt Hoffman's Pro BMX 2," and "Disney's Extreme Skate Adventure" to whitelisted games list.
-
 - Rewrote SRCOM API requests to consolidate number of API requests sent out.
 - Rewrote how sub-categories and level names were displayed to the game moderators channel.
-
 - Changed formula of THPSCE submissions to be a maximum of 10 points (formerly 100; displayed as 1000).
 - Changed checks for SRCOM submissions and approvals to occur every 30 minutes (formerly 1 hour).
-
 - Fixed an issue where stream thumbnails were cached and would not update properly.
 
 --------
 v1.3.2
 - Added support for Packle to have error logs properly sent.
 - Added additional logic to handle leaderboards without a world record on approval and tied world records for embeds.
-
 - Fixed an issue where WR and PB times were not being properly compared, resulting in weird deltas.
 - Fixed an issue where deleted runs would break script execution upon lookup.
 
@@ -27,17 +23,14 @@ v1.4 - The Notifications Update
 - Added support for "unofficial" games to be displayed in #non-thps-pbs only if the user has an approved THPS run.
 - Added support for moderators and admins to add and remove "unofficial" games.
 - Added support for moderators to query list of all "unofficial" games the bot checks.
-
 - Changed the interval for checking Speedrun.com's API to 10 minutes (formerly 30, formerly 60).
 -- There is a chance that this might change to 15 minutes; still gathering some additional information to optimize this.
-
 - Fixed an issue where approved players would not be properly added to the stream whitelist.
 - Fixed an issue where WR delta would be incorrectly displayed.
 
 --------
 v1.4.1
 - Added additional error handling checks to ensure the livestream routine would not crash.
-
 - Fixed an issue where usernames with special characters would crash the livestream routine.
 - Fixed an issue where approved players already on the stream whitelist would be duplicated.
 
@@ -76,9 +69,18 @@ v1.4.7
 v1.5 - The "Twitch Stream Lookups Don't Take Forever" Update
 - Added better error messages for troubleshooting purposes.
 - Changed how Twitch lookups were performed (instead of looking up for each user, it queries ALL approved games at once).
-
 - Fixed an issue where the bot could hang on Twitch lookups in rare circumstances.
 
+--------
+v1.5.2
+- Added a timer so that the bot only begins at the 30 minute mark or at the start of the hour.
+- Added support for adding profile pictures dynamically, switched every 24 hours.
+- Added better code for Discord embeds using dictionaries and filling in details based on dynamic criteria.
+- Removed a lot of redundant code.
+- Fixed an issue where the bot would not report error messages in some situations.
+
+--------
 To do:
 () Users can register an emote that automatically appears when they PB.
---------
+() Update to Discord.py v2.X https://discordpy.readthedocs.io/en/latest/migrating.html
+() Update to using slash commands

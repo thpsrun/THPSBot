@@ -16,15 +16,11 @@ def execute(lookup):
         for run in lb:
             if runinfo["id"] == run["run"]["id"]:
                 place = run["place"]
-                try:
-                    verifydate = run["run"]["status"]["verify-date"]
-                except KeyError:
-                    verifydate = 0
+                try: verifydate = run["run"]["status"]["verify-date"]
+                except KeyError: verifydate = 0
 
-                if runinfo["wrsecs"] == "NoWR":
-                    ratio = 4.8284 * (runinfo["pbsecs"]/runinfo["pbsecs"])
-                else:
-                    ratio = 4.8284 * (runinfo["wrsecs"]/runinfo["pbsecs"])
+                if runinfo["wrsecs"] == "NoWR": ratio = 4.8284 * (runinfo["pbsecs"]/runinfo["pbsecs"])
+                else: ratio = 4.8284 * (runinfo["wrsecs"]/runinfo["pbsecs"])
                     
                 if "Category Extensions" in runinfo["gname"]:
                     points = math.trunc(0.008 * exp(ratio) * 10)

@@ -5,10 +5,8 @@ def main(arg):
     streamlist = json.load(loadjson)
 
     for key in streamlist["Streams"]["Twitch"]:
-        try:
-            username = key["username"]
-        except:
-            return 1
+        try: username = key["username"]
+        except: return 1
 
         if username.casefold() == arg.casefold():
             del key["username"]

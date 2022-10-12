@@ -24,8 +24,7 @@ def execute(streamlist):
                         streamtnail = stream["thumbnail_url"].replace("{width}","1280").replace("{height}","720") + "?rand=" + str(int(time.time()))        
                         userexport = twitch.get_users(logins=stream["user_login"])["data"]
 
-                        json = {"title":stream["title"],"gname":stream["game_name"],"tnail":streamtnail,"user":userexport[0]["display_name"],"pfp":userexport[0]["profile_image_url"]}
-                        returnedjson.append(json)
+                        returnedjson.append({"title":stream["title"],"gname":stream["game_name"],"tnail":streamtnail,"user":userexport[0]["display_name"],"pfp":userexport[0]["profile_image_url"]})
                         break
 
             return returnedjson
