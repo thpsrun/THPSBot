@@ -1,7 +1,9 @@
-import discord,configparser,json,random,datetime,requests,time,traceback,glob
+import discord,configparser,json,random,datetime,requests,time,traceback,glob,logging
 from commands import addtwitchstream,querystream,removetwitchstream,addsidegame,removesidegame,querysidegame
 from functions import livestream,srlookup,srapproval
 from discord.ext import tasks,commands
+
+handler = logging.FileHandler(filename='errors.log', encoding='utf-8', mode='w')
 
 config = configparser.ConfigParser()
 config.read("./config.ini")
@@ -454,8 +456,8 @@ async def start_srcom():
                 
                         embed = discord.Embed.from_dict(embed)
 
-                        if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
-                        else: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url=approval[4]["pfp"])
+                        if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url="https://speedrun.com/{0}".format(approval[4]["pname"]), icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
+                        else: embed.set_author(name=approval[4]["pname"], url="https://speedrun.com/{0}".format(approval[4]["pname"]), icon_url=approval[4]["pfp"])
                         embed.add_field(name="Placing", value="{0} / {1}".format(approval[0],approval[5]), inline=True)
                         embed.add_field(name="Points", value=approval[1], inline=True)
                         embed.add_field(name="Platform", value=approval[4]["platform"], inline=True)
@@ -696,4 +698,4 @@ async def start_side_srcom():
     onlinejson.write(submissions)
     onlinejson.close()
 
-client.run(configdiscord["distoken"])
+client.run(configdiscord["distoken"], log_handler=handler)
