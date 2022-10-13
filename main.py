@@ -1,9 +1,7 @@
-import discord,configparser,json,random,datetime,requests,time,traceback,glob,logging
+import discord,configparser,json,random,datetime,requests,time,traceback,glob
 from commands import addtwitchstream,querystream,removetwitchstream,addsidegame,removesidegame,querysidegame
 from functions import livestream,srlookup,srapproval
 from discord.ext import tasks,commands
-
-handler = logging.FileHandler(filename='errors.log', encoding='utf-8', mode='w')
 
 config = configparser.ConfigParser()
 config.read("./config.ini")
@@ -698,4 +696,4 @@ async def start_side_srcom():
     onlinejson.write(submissions)
     onlinejson.close()
 
-client.run(configdiscord["distoken"], log_handler=handler)
+client.run(configdiscord["distoken"], reconnect=True)

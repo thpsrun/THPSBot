@@ -72,10 +72,11 @@ v1.5 - The "Twitch Stream Lookups Don't Take Forever" Update
 - Fixed an issue where the bot could hang on Twitch lookups in rare circumstances.
 
 --------
-v1.5.2
+v1.5.3
 - Added a timer so that the bot only begins at the 30 minute mark or at the start of the hour.
 - Added support for adding profile pictures dynamically, switched every 24 hours.
 - Added better code for Discord embeds using dictionaries and filling in details based on dynamic criteria.
+- Changed the the URL for clicking on someone's name in a PB/WR embed to link to their Speedrun.com profile.
 - Removed a lot of redundant code.
 - Fixed an issue where the bot would not report error messages in some situations.
 
@@ -84,3 +85,4 @@ To do:
 () Users can register an emote that automatically appears when they PB.
 () Update to Discord.py v2.X https://discordpy.readthedocs.io/en/latest/migrating.html
 () Update to using slash commands
+() Add error logging https://discordpy.readthedocs.io/en/stable/logging.html
