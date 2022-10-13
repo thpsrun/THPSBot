@@ -18,13 +18,13 @@ async def on_ready():
     gettime = time.localtime()
     gettime = time.strftime("%M", gettime)
 
-    if gettime != "30" or gettime != "0": print("[WAITING] SCRIPT BEGAN AT {0}... WAITING...".format(gettime))
-    while gettime != "30" or gettime != "0":
+    if gettime != "30" or gettime != "00": print("[WAITING] SCRIPT BEGAN AT {0}... WAITING...".format(gettime))
+    while gettime != "30" or gettime != "00":
         time.sleep(20)
         gettime = time.localtime()
         gettime = time.strftime("%M", gettime)
-        if gettime != "30" or gettime != "0": print("-- CURRENT MINUTE IS {0}... WAITING...".format(gettime))
-        if gettime == "30" or gettime == "0": print("-- 30 MINUTE INTERVAL HIT! RUNNING...".format(gettime))
+        if gettime != "30" or gettime != "00": print("-- CURRENT MINUTE IS {0}... WAITING...".format(gettime))
+        if gettime == "30" or gettime == "00": print("-- 30 MINUTE INTERVAL HIT! RUNNING...".format(gettime)); break
 
     if not start_livestream.is_running():
         start_livestream.start()

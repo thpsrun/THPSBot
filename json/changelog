@@ -86,3 +86,5 @@ To do:
 () Update to Discord.py v2.X https://discordpy.readthedocs.io/en/latest/migrating.html
 () Update to using slash commands
 () Add error logging https://discordpy.readthedocs.io/en/stable/logging.html
+() Allow players to "register" their Discord with their Speedrun.com profile (will be useful for eventual Twitch bot and thps.run v2 integration).
+() Integration with thps.run v2 that would give additional information about a user based on stuff based on commands they want (would also add a bot channel to reduce spam)
