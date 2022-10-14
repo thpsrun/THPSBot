@@ -204,7 +204,7 @@ async def start_livestream():
 
         online = livestream.execute(streamlist)
 
-        if online == None or len(online) == 0:
+        if online == 0 or len(online) == 0:
             pass
         elif isinstance(online,str):
             await errorchannel.send(online)
@@ -368,11 +368,11 @@ async def start_srcom():
                     if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]) and ("thps4ce" not in unapprovedrun["abbr"]):
                         verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
                     elif ("gbc" in unapprovedrun["abbr"]):
-                        verify = await submissionschannel.send("@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gbc",""))
+                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gbc",""))
                     elif ("gba" in unapprovedrun["abbr"]):
-                        verify = await submissionschannel.send("@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gba",""))
+                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gba",""))
                     elif ("psp" in unapprovedrun["abbr"]) :
-                        verify = await submissionschannel.send("@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("psp",""))
+                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("psp",""))
                     else:
                         verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
                 except:
