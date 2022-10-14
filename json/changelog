@@ -81,6 +81,11 @@ v1.5.3
 - Fixed an issue where the bot would not report error messages in some situations.
 
 --------
+v1.5.4
+- Added additional logic to deal with handheld ports of GBC, GBA, and PSP games.
+- Fixed an issue where the bot can crash if no role when embedding pending speedruns.
+
+--------
 To do:
 () Users can register an emote that automatically appears when they PB.
 () Update to Discord.py v2.X https://discordpy.readthedocs.io/en/latest/migrating.html

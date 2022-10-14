@@ -364,10 +364,19 @@ async def start_srcom():
                 embed.set_footer(text=configdiscord["botver"])
                 embed.set_thumbnail(url=unapprovedrun["gcover"])
 
-                if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]) and ("thps4ce" not in unapprovedrun["abbr"]):
-                    verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
-                else:
-                    verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
+                try:
+                    if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]) and ("thps4ce" not in unapprovedrun["abbr"]):
+                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
+                    elif ("gbc" in unapprovedrun["abbr"]):
+                        verify = await submissionschannel.send("@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gbc",""))
+                    elif ("gba" in unapprovedrun["abbr"]):
+                        verify = await submissionschannel.send("@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gba",""))
+                    elif ("psp" in unapprovedrun["abbr"]) :
+                        verify = await submissionschannel.send("@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("psp",""))
+                    else:
+                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
+                except:
+                    verify = await submissionschannel.send("No role found")
                 grabmessage = await submissionschannel.send(embed=embed)
 
                 onlinejson = open("./json/submissions.json", "r")
