@@ -84,6 +84,7 @@ v1.5.3
 v1.5.4
 - Added additional logic to deal with handheld ports of GBC, GBA, and PSP games.
 - Fixed an issue where the bot can crash if no role when embedding pending speedruns.
+- Fixed an issue where the bot doesn't know how to deal with IL speedruns with the new embedding format.
 
 --------
 To do:
