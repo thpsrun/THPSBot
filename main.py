@@ -6,6 +6,7 @@ from discord.ext import tasks,commands
 config = configparser.ConfigParser()
 config.read("./config.ini")
 configdiscord = config["Discord"]
+global globalbreak
 globalbreak = 0
 
 intents = discord.Intents.default()
