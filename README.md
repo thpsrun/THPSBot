@@ -15,6 +15,7 @@ THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It i
 ### v2.0.1
 - Fixed an issue where multiple streams would confuse the bot of which streamer was which.
 - Fixed an issue where deleting streams from the local database would fail.
+- Fixed an issue where therun.gg lookups would fail if the player skipped a split or if none was provided.
 - Removed some obsolete modules.
 
 ### v2.0 - The CatBag Update
