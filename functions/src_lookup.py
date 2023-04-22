@@ -1,17 +1,19 @@
 from time import sleep
-import requests,datetime,traceback
+import datetime,traceback
+from functions import src_api_call
 from requests.structures import CaseInsensitiveDict
 
-def execute(lookup,type):    
+async def main(type,lookup):    
     try:
-        if type == 0: runid = lookup["id"]
-        else: runid = lookup
+        if type == 0:
+            runid = lookup["id"]
+        else:
+            runid = lookup
 
         print("--- [SRCOM] Found {0}.".format(runid))
 
-        try:
-            runinfo = requests.get("https://speedrun.com/api/v1/runs/{0}?embed=game,category,platform,players,level".format(runid)).json()["data"]
-        except KeyError:
+        runinfo = await src_api_call.main(f"https://speedrun.com/api/v1/runs/{runid}?embed=game,category,platform,players,level")
+        if isinstance(runinfo, int):
             return str(traceback.print_exc())
 
         runlink = runinfo["weblink"]
@@ -54,7 +56,8 @@ def execute(lookup,type):
                     keyvar = variables.get(key)
                     varlookupstr = "var-{0}={1}&".format(key,keyvar)
 
-                    varlookup = requests.get("https://speedrun.com/api/v1/variables/{0}".format(key)).json()["data"]["values"]["values"][keyvar]["label"]
+                    varlookup = await src_api_call.main(f"https://speedrun.com/api/v1/variables/{key}")
+                    varlookup = varlookup["values"]["values"][keyvar]["label"]
 
                     subcatname += "{0}, ".format(varlookup)
 
@@ -85,17 +88,20 @@ def execute(lookup,type):
             try:
                 increment = 0
                 if lvlid != "NoILFound":
-                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
-
+                    wrsecs = await src_api_call.main(f"https://speedrun.com/api/v1/leaderboards/{gameid}/level/{lvlid}/{catid}")
+                    wrsecs = wrsecs["runs"][increment]["run"]["times"]["primary_t"]
                     while wrsecs == playerpb:
                         increment += 1
-                        wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(gameid,lvlid,catid)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
+                        wrsecs = await src_api_call.main(f"https://speedrun.com/api/v1/leaderboards/{gameid}/level/{lvlid}/{catid}")
+                        wrsecs = wrsecs["runs"][increment]["run"]["times"]["primary_t"]
                 else:
-                    wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
+                    wrsecs = await src_api_call.main(f"https://speedrun.com/api/v1/leaderboards/{gameid}/category/{catid}?{lbline}")
+                    wrsecs = wrsecs["runs"][increment]["run"]["times"]["primary_t"]
 
                     while wrsecs == playerpb:
                         increment += 1
-                        wrsecs = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(gameid,catid,lbline)).json()["data"]["runs"][increment]["run"]["times"]["primary_t"]
+                        wrsecs = await src_api_call.main(f"https://speedrun.com/api/v1/leaderboards/{gameid}/category/{catid}?{lbline}")
+                        wrsecs = wrsecs["runs"][increment]["run"]["times"]["primary_t"]
 
                 if wrsecs > 0: attempts = 3
             except IndexError:
@@ -106,11 +112,11 @@ def execute(lookup,type):
 
         if type == 1:
             offset = 0
-            playerruns = len(requests.get("https://speedrun.com/api/v1/runs?game={0}&user={1}&status=verified&max=200".format(gameid,playerid)).json()["data"])
+            playerruns = len(await src_api_call.main(f"https://speedrun.com/api/v1/runs?game={gameid}&user={playerid}&status=verified&max=200"))
             
             while playerruns % 200 == 0:
                 offset += 200
-                lookup = len(requests.get("https://speedrun.com/api/v1/runs?game={0}&user={1}&status=verified&offset={2}&max=200".format(gameid,playerid,offset)).json()["data"])
+                lookup = len(await src_api_call.main(f"https://speedrun.com/api/v1/runs?game={gameid}&user={playerid}&status=verified&offset={offset}&max=200"))
                 if lookup > 1:
                     playerruns += lookup
                 else:
