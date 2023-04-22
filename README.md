@@ -4,7 +4,7 @@
 THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It is a bot specially designed by [ThePackle](https://twitter.com/thepackle) that combines multiple functions. This includes:
 * Periodic checks to the [Speedrun.com API](https://github.com/speedruncomorg/api) to see if there is any new games to verify in the THPS series.
 * Checks every minute to see if someone is currently streaming.
- * If they have therun.gg LiveSplit plugin, there is more data added to their stream embed!!
+  * If they have therun.gg LiveSplit plugin, there is more data added to their stream embed!!
 * And a lot more, specially designed for community. :)
 
 ## Note About This Repo
