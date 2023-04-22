@@ -1,18 +1,20 @@
-import requests,math,traceback
-from functions import srlookup
+import math
+from functions import src_api_call,src_lookup
 from math import exp
 
-def execute(lookup):
-    try:
-        print("--- [SRCOM] Evaluating submission approval.")
-        runinfo = srlookup.execute(lookup,1)
-        
-        if runinfo["lvlid"] == "NoILFound":
-            lb = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/category/{1}?{2}".format(runinfo["gid"],runinfo["cid"],runinfo["lbline"])).json()["data"]["runs"]
-        else:
-            lb = requests.get("https://speedrun.com/api/v1/leaderboards/{0}/level/{1}/{2}".format(runinfo["gid"],runinfo["lvlid"],runinfo["cid"])).json()["data"]["runs"]
-        runtotal = len(lb)
+async def main(lookup):
+    print("--- [SRCOM] Evaluating submission approval.")
+    runinfo = await src_lookup.main(1,lookup)
+    
+    if runinfo["lvlid"] == "NoILFound":
+        lb = await src_api_call.main(f"https://speedrun.com/api/v1/leaderboards/{runinfo['gid']}/category/{runinfo['cid']}?{runinfo['lbline']}")
+        lb = lb["runs"]
+    else:
+        lb = await src_api_call.main(f"https://speedrun.com/api/v1/leaderboards/{runinfo['gid']}/level/{runinfo['lvlid']}/{runinfo['cid']}")
+        lb = lb["runs"]
+    runtotal = len(lb)
 
+    if len(lb) > 0:
         for run in lb:
             if runinfo["id"] == run["run"]["id"]:
                 place = run["place"]
@@ -33,8 +35,7 @@ def execute(lookup):
                     if points > 1000: points = 1000
                 
                 pass
-
-        try: return place,points,runinfo["wrsecs"],runinfo["pbsecs"],runinfo,runtotal,verifydate
-        except UnboundLocalError: return 0,0,0,0,0,0
-    except:
-        return str(traceback.print_exc())
+        
+        return place,points,runinfo["wrsecs"],runinfo["pbsecs"],runinfo,runtotal,verifydate
+    else:
+        return 0,0,0,0,0,0,0
