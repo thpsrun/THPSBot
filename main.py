@@ -1,8 +1,8 @@
 ###########################################################################################################################################################################
-# THPSBot v2.0
+# THPSBot v2.0.1
 # BY THEPACKLE (https://twitter.com/thepackle)
 ###########################################################################################################################################################################
-import os,requests,sys,discord,random,datetime,time,traceback,glob,sqlite3,logging.handlers
+import os,requests,sys,discord,random,datetime,time,traceback,glob,sqlite3
 from commands import sidegame_add,sidegame_query,sidegame_remove
 from commands import ttv_add,ttv_query,ttv_remove
 from commands import status_add,status_query,status_remove
@@ -20,7 +20,7 @@ from PIL import Image
 
 intents = discord.Intents.all()
 client  = commands.Bot(intents=intents)
-debug   = 0
+debug   = 0 # 0 = PROD; 1 = DEBUG
 
 while True and debug == 0:
     current_time = time.localtime()
@@ -28,7 +28,7 @@ while True and debug == 0:
         break
     minutes_until_start = 30 - current_time.tm_min % 30
     print(f"{minutes_until_start} minute(s) until script starts")
-    time.sleep(60)
+    time.sleep(30)
 
 @client.event
 async def on_ready():
@@ -87,7 +87,7 @@ async def status(
                 await ctx.respond(f"{message} is not in the status list.")
     except:
         await errorchannel.send("[ADDING] Status message error")
-        await ctx.respond(f"An error occurred when adding '{message}'.")
+        await ctx.send(f"An error occurred when adding '{message}'.")
 
 @client.slash_command(name="stream",description="Add or remove users from the livestream list or query it!")
 async def stream(
@@ -118,7 +118,7 @@ async def stream(
                 await ctx.respond(f"{user} is not in the stream list.")
     except:
         await errorchannel.send("[QUERY] Twitch stream list error")
-        await ctx.respond(f"An error occurred when dealing with a new stream list. {user}.")
+        await ctx.send(f"An error occurred when dealing with a new stream list. {user}.")
 
 @client.slash_command(name="sidegames",description="Add or remove users from the side games listor query it!")
 async def stream(
@@ -149,7 +149,7 @@ async def stream(
                 await ctx.respond(f"{game} either does not exist or is not an abbreviation.")
     except:
         await errorchannel.send("[QUERY] Side games list error")
-        await ctx.respond("An error occurred with the game list.")
+        await ctx.send("An error occurred with the game list.")
 
 pfp = discord.SlashCommandGroup("pfp", "Set a profile picture to THPSBot or add a new one!")
 async def get_pfp_filenames(ctx: discord.AutocompleteContext):
@@ -209,7 +209,7 @@ async def restart(ctx):
     except:
         await ctx.respond("")
 
-@client.slash_command(description="Create a new poll with reactions already added.")
+@client.slash_command(description="Create a new poll with reactions already added!")
 async def poll(ctx, *, question):
     try:
         await ctx.respond("Creating poll...", ephemeral=True)
@@ -305,41 +305,32 @@ async def start_livestream():
         #youtubelist    = await local_onlinedb.main(3,0)
         twitchlist      = await ttv_lookup.main(streamlist)
         fulltwitchlist  = [row["user"].casefold() for row in twitchlist]
+        fullonlinelist  = [row[0].casefold() for row in onlinelist]
 
-        if twitchlist == 0 or len(twitchlist) == 0:
-            pass
-        elif isinstance(twitchlist,str):
+        if isinstance(twitchlist,str):
             await errorchannel.send(twitchlist)
-        elif len(twitchlist) != 0:
-            for stream in twitchlist:
-                for onlinecheck in onlinelist:
-                    rungg = await rungg_lookup.main(onlinecheck[0])
+        else:
+            if len(twitchlist) > 0:
+                for stream in twitchlist:
+                    rungg = await rungg_lookup.main(stream["user"])
 
-                    if onlinecheck[0].casefold() not in fulltwitchlist and onlinecheck[0] == "NA":
-                        print(f"--- {onlinecheck[0].casefold()} is now offline.")
-                        messageid = int(onlinecheck[1])
-                        verify = int(onlinecheck[2])
+                    if stream["user"].casefold() in fullonlinelist:
+                        for index, data in enumerate(onlinelist):
+                            if data[0].casefold() == stream["user"].casefold():
+                                onlineindex = index
 
-                        finalid = await streamchannel.fetch_message(messageid)
-                        verifyid = await streamchannel.fetch_message(verify)
-
-                        await finalid.delete()
-                        await verifyid.delete()
-                        onlinelist = await local_onlinedb.main(2,onlinecheck[0].casefold())
-
-                    elif onlinecheck[0].casefold() == stream["user"].casefold():                        
                         print(f"--- {stream['user']} is online, updating embed.")
-                        messageid = int(onlinecheck[1])
+                        messageid = int(onlinelist[onlineindex][1])
 
                         embed=discord.Embed(
                             title=stream["title"],
-                            url="https://twitch.tv/"+onlinecheck[0],
-                            description=f"[Click here to watch](https://twitch.tv/{onlinecheck[0]})",
+                            url="https://twitch.tv/"+stream["user"],
+                            description=f"[Click here to watch](https://twitch.tv/{stream['user']})",
                             color=random.randint(0, 0xFFFFFF),
                             timestamp=datetime.datetime.utcnow()
                         )
                         
-                        embed.set_author(name=onlinecheck[0]+" is live on Twitch!", url="https://twitch.tv/"+onlinecheck[0], icon_url=stream["pfp"])
+                        embed.set_author(name=stream["user"]+" is live on Twitch!", url="https://twitch.tv/"+stream["user"], icon_url=stream["pfp"])
                         embed.add_field(name="Game", value=stream["gname"], inline=True)
                         embed.set_footer(text=config.botver)
                         embed.set_image(url=stream["tnail"])
@@ -359,16 +350,17 @@ async def start_livestream():
 
                         editid = await streamchannel.fetch_message(messageid)
                         await editid.edit(embed=embed)
-                    else:
+
+                    elif stream["user"] != "NA":
                         embed=discord.Embed(
                             title=stream["title"],
-                            url="https://twitch.tv/"+onlinecheck[0],
+                            url="https://twitch.tv/"+stream["user"],
                             description=f"[Click here to watch](https://twitch.tv/{stream['user']})",
                             color=random.randint(0, 0xFFFFFF),
                             timestamp=datetime.datetime.utcnow()
                         )
 
-                        embed.set_author(name=onlinecheck[0]+" is live on Twitch!", url="https://twitch.tv/"+onlinecheck[0], icon_url=stream["pfp"])
+                        embed.set_author(name=stream["user"]+" is live on Twitch!", url="https://twitch.tv/"+stream["user"], icon_url=stream["pfp"])
                         embed.set_footer(text=config.botver)
                         embed.set_image(url=stream["tnail"])
                         embed.add_field(name="Game", value=stream["gname"], inline=True)
@@ -389,7 +381,18 @@ async def start_livestream():
                         grabmessage = await streamchannel.send(embed=embed)
                         verify = await streamchannel.send(f"<@&{config.roles['Stream']}>")
 
-                        await local_onlinedb.main(1,(stream["user"],grabmessage.id,verify.id))
+                        await local_onlinedb.main(1,(stream["user"].casefold(),grabmessage.id,verify.id))
+
+            for onlinecheck in onlinelist:
+                if onlinecheck[0].casefold() not in fulltwitchlist and onlinecheck != "NA":
+                    print(f"--- {onlinecheck[0].casefold()} is now offline.")
+
+                    finalid = await streamchannel.fetch_message(int(onlinecheck[1]))
+                    verifyid = await streamchannel.fetch_message(int(onlinecheck[2]))
+
+                    await finalid.delete()
+                    await verifyid.delete()
+                    onlinelist = await local_onlinedb.main(2,onlinecheck[0].casefold())
         
         print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [TWITCH] Completed Twitch livestream checks...")
 
