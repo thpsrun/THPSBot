@@ -6,7 +6,10 @@ async def main(type,arg):
         if type == 0:
             await cursor.execute("SELECT * FROM twitch")
             online = await cursor.fetchall()
-            return online
+            if len(online) == 0:
+                return ["NA"]
+            else:
+                return online
         elif type == 1:
             await cursor.execute("INSERT INTO twitch VALUES (?,?,?)", (arg))
         elif type == 2:
@@ -14,7 +17,10 @@ async def main(type,arg):
         elif type == 3:
             await cursor.execute("SELECT * FROM youtube")
             online = await cursor.fetchall()
-            return online
+            if len(online) == 0:
+                return ["NA"]
+            else:
+                return online
         elif type == 4:
             await cursor.execute("INSERT INTO youtube VALUES (?,?,?)", (arg))
         elif type == 5:

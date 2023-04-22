@@ -314,7 +314,8 @@ async def start_livestream():
             for stream in twitchlist:
                 for onlinecheck in onlinelist:
                     rungg = await rungg_lookup.main(onlinecheck[0])
-                    if onlinecheck[0].casefold() not in fulltwitchlist:
+
+                    if onlinecheck[0].casefold() not in fulltwitchlist and onlinecheck[0] == "NA":
                         print(f"--- {onlinecheck[0].casefold()} is now offline.")
                         messageid = int(onlinecheck[1])
                         verify = int(onlinecheck[2])
@@ -326,7 +327,7 @@ async def start_livestream():
                         await verifyid.delete()
                         onlinelist = await local_onlinedb.main(2,onlinecheck[0].casefold())
 
-                    elif onlinecheck[0].casefold() == onlinecheck[0].casefold():                        
+                    elif onlinecheck[0].casefold() == stream["user"].casefold():                        
                         print(f"--- {stream['user']} is online, updating embed.")
                         messageid = int(onlinecheck[1])
 
