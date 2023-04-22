@@ -1,33 +1,42 @@
-import discord,configparser,json,random,datetime,requests,time,traceback,glob
-from commands import addtwitchstream,querystream,removetwitchstream,addsidegame,removesidegame,querysidegame
-from functions import livestream,srlookup,srapproval
+###########################################################################################################################################################################
+# THPSBot v2.0
+# BY THEPACKLE (https://twitter.com/thepackle)
+###########################################################################################################################################################################
+import os,requests,sys,discord,random,datetime,time,traceback,glob,sqlite3,logging.handlers
+from commands import sidegame_add,sidegame_query,sidegame_remove
+from commands import ttv_add,ttv_query,ttv_remove
+from commands import status_add,status_query,status_remove
+from functions import rungg_lookup,ttv_lookup
+from functions import src_approval,src_lookup,src_api_call
+from functions import local_streamdb,local_onlinedb,local_submissionsdb,local_sidegamesdb,local_tonysdb
+from dbs import config
+from discord import File
+from io import BytesIO
+from urllib.parse import urlparse
 from discord.ext import tasks,commands
+from PIL import Image
+###########################################################################################################################################################################
+###########################################################################################################################################################################
 
-config = configparser.ConfigParser()
-config.read("./config.ini")
-configdiscord = config["Discord"]
-global globalbreak
-globalbreak = 0
+intents = discord.Intents.all()
+client  = commands.Bot(intents=intents)
+debug   = 0
 
-intents = discord.Intents.default()
-client = commands.Bot(command_prefix=configdiscord["prefix"], intents=intents, help_command=None)
+while True and debug == 0:
+    current_time = time.localtime()
+    if current_time.tm_min == 0 or current_time.tm_min == 30:
+        break
+    minutes_until_start = 30 - current_time.tm_min % 30
+    print(f"{minutes_until_start} minute(s) until script starts")
+    time.sleep(60)
 
 @client.event
 async def on_ready():
-    print('Logged in as {0.user}'.format(client))
+    print(f"Logged in as {client.user}")
     await change_status()
 
-    gettime = time.localtime()
-    gettime = time.strftime("%M", gettime)
-
-    if globalbreak == 0:
-        if gettime != "30" or gettime != "00": print("[WAITING] SCRIPT BEGAN AT {0}... WAITING...".format(gettime))
-        while gettime != "30" or gettime != "00":
-            time.sleep(20)
-            gettime = time.localtime()
-            gettime = time.strftime("%M", gettime)
-            if gettime != "30" or gettime != "00": print("-- CURRENT MINUTE IS {0}... WAITING...".format(gettime))
-            if gettime == "30" or gettime == "00": print("-- 30 MINUTE INTERVAL HIT! RUNNING...".format(gettime)); globalbreak = 1; break
+    global errorchannel
+    errorchannel = await client.fetch_channel(int(config.channels["error"]))
 
     if not start_livestream.is_running():
         start_livestream.start()
@@ -44,134 +53,234 @@ async def on_ready():
     if not start_side_srcom.is_running():
         start_side_srcom.start()
 
-@client.command()
+@client.slash_command(description="Quick check to see if the bot is responding to requests.")
 @commands.cooldown(1, 10, commands.BucketType.user)
 async def ping(ctx):
-    if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
-        await ctx.send("Pong!")
+    await ctx.respond(f"Hello, {ctx.author}! If you are seeing this, I am online. If something is broken, blame Packle.", ephemeral=True)
 
-@client.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def addstream(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
-
-    if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
-        try:
-            check = addtwitchstream.main(arg)
+@client.slash_command(name="status",description="Add a new status message that the bot can cycle through.")
+async def status(
+    ctx: discord.ApplicationContext,
+    status: discord.Option(str, choices=["Add","Remove","Query"]),
+    message: discord.Option(str)
+):
+    try:
+        if status == "Add":
+            check = await status_add.main(message)
             if check == 0:
-                await ctx.send('{0} was added to the stream list.'.format(arg))
+                await ctx.respond(f"'{message}' was added to the status list.")
             elif check == 1:
-                await ctx.send('{0} was already in the stream list.'.format(arg))
-        except:
-            await errorchannel.send("[ADDING] Twitch stream list error")
-            await ctx.send('An error occurred when adding {0}.'.format(arg))
-
-@client.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def removestream(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
-
-    if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
-        try:
-            check = removetwitchstream.main(arg)
+                await ctx.respond(f"'{message}' waas already in the stream list.")
+        
+        elif status == "Remove":
+            check = await status_remove.main(message)
             if check == 0:
-                await ctx.send('{0} was removed to the stream list.'.format(arg))
+                await ctx.respond(f"{message} was removed to the status list.")
             elif check == 1:
-                await ctx.send('{0} was not found in the stream list'.format(arg))
-        except:
-            await errorchannel.send("[REMOVE] Twitch stream list error")
-            await ctx.send('An error occurred when removing {0}.'.format(arg))
+                await ctx.respond(f"{message} was not found in the status list")
 
-@client.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def query(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
-
-    if ctx.channel.name == "livestreams" or ctx.channel.name == "mods":
-        try:
-            check = querystream.main(arg)
+        elif status == "Query":
+            check = await status_query.main(message)
             if check == 0:
-                await ctx.send('{0} is in the stream list'.format(arg))
+                await ctx.respond(f"{message} is in the status list.")
             elif check == 1:
-                await ctx.send('{0} is not in the stream list.'.format(arg))
-        except:
-            await errorchannel.send("[QUERY] Twitch stream list error")
-            await ctx.send('An error occurred when querying {0}.'.format(arg))
+                await ctx.respond(f"{message} is not in the status list.")
+    except:
+        await errorchannel.send("[ADDING] Status message error")
+        await ctx.respond(f"An error occurred when adding '{message}'.")
 
-@client.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def addgame(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
-
-    if ctx.channel.name == "mods":
-        try:
-            check = addsidegame.main(arg)
+@client.slash_command(name="stream",description="Add or remove users from the livestream list or query it!")
+async def stream(
+    ctx: discord.ApplicationContext,
+    option: discord.Option(str, choices=["Add","Remove","Query"]),
+    user: discord.Option(str)
+):
+    try:
+        if option == "Add":
+            check = await ttv_add.main(user)
             if check == 0:
-                await ctx.send('{0} has been added to the side games listing.'.format(arg))
+                await ctx.respond(f"{user} was added to the stream list.")
             elif check == 1:
-                await ctx.send('{0} already exists in the side games listing.'.format(arg))
-            elif check == 2:
-                await ctx.send('{0} does not seem to be an abbreviation. Please check the abbreviation of the game, then try again.'.format(arg))
+                await ctx.respond(f"{user} was already in the stream list.")
+
+        elif option == "Remove":
+            check = await ttv_remove.main(user)
+            if check == 0:
+                await ctx.respond(f"{user} was removed to the stream list.")
+            elif check == 1:
+                await ctx.respond(f"{user} was not found in the stream list")
+
+        elif option == "Query":
+            check = await ttv_query.main(user)
+            if check == 0:
+                await ctx.respond(f"{user} is in the stream list.")
+            elif check == 1:
+                await ctx.respond(f"{user} is not in the stream list.")
+    except:
+        await errorchannel.send("[QUERY] Twitch stream list error")
+        await ctx.respond(f"An error occurred when dealing with a new stream list. {user}.")
+
+@client.slash_command(name="sidegames",description="Add or remove users from the side games listor query it!")
+async def stream(
+    ctx: discord.ApplicationContext,
+    option: discord.Option(str, choices=["Add","Remove","Query"]),
+    game: discord.Option(str)
+):
+    try:
+        if option == "Add":
+            check = await sidegame_add.main(game)
+            if check == 0:
+                await ctx.respond(f"{game} has been added to the side games listing.")
+            elif check == 1:
+                await ctx.respond(f"{game} already exists in the side games listing.")
             else:
-                await ctx.send('Unknown error (Packle needs to check the logs')
-        except:
-            await errorchannel.send("[ADDING] Side games list error")
-            await ctx.send('An error occurred when querying {0}.'.format(arg))
-
-@client.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def removegame(ctx,arg):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
-
-    if ctx.channel.name == "mods":
-        try:
-            check = removesidegame.main(arg)
+                await ctx.respond(f"{game} does not seem to be an abbreviation. Please check the abbreviation of the game, then try again.")
+        elif option == "Remove":
+            check = await sidegame_remove.main(game)
             if check == 0:
-                await ctx.send('{0} has been removed from the side games listing.'.format(arg))
+                await ctx.respond(f"{game} has been removed from the side games listing.")
             elif check == 1:
-                await ctx.send('{0} was not found in the side games listing. Please make sure the abbreivation of the game is correct.'.format(arg))
-        except:
-            await errorchannel.send("[REMOVE] Side games list error")
-            await ctx.send('An error occurred when removing {0}.'.format(arg))
+                await ctx.respond(f"{game} was not found in the side games listing. Please make sure the abbreivation of the game is correct.")
+        elif option == "Query":
+            check = await sidegame_query.main(game)
+            if check == 0:
+                await ctx.respond(f"{game} is in the side games listing.")
+            elif check == 1:
+                await ctx.respond(f"{game} either does not exist or is not an abbreviation.")
+    except:
+        await errorchannel.send("[QUERY] Side games list error")
+        await ctx.respond("An error occurred with the game list.")
 
-@client.command()
-@commands.cooldown(1, 5, commands.BucketType.user)
-async def querygames(ctx):
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+pfp = discord.SlashCommandGroup("pfp", "Set a profile picture to THPSBot or add a new one!")
+async def get_pfp_filenames(ctx: discord.AutocompleteContext):
+    pfps = os.listdir("pfp")
+    return pfps
+    
+@pfp.command()
+async def add(ctx, url: str):
+    try:
+        url_parts = urlparse(url)
+        fileextension = os.path.splitext(url_parts.path)[1]
 
-    if ctx.channel.name == "mods":
-        try:
-            check = querysidegame.main()
+        if fileextension.lower() == ".jpg" or fileextension.lower() == ".png":
+            response = requests.get(url)
+            response.raise_for_status()
+
+            resp = Image.open(BytesIO(response.content))
+            image = resp.resize((128,128))
+
+            author = ctx.author
+            await ctx.respond(f"{author.mention}, what is the new name of the file? (30 second timeout)")
+            new_file = await client.wait_for("message", check=lambda m: m.author.id == author.id and m.channel.id == ctx.channel.id, timeout=30.0)
+            new_filename = new_file.content
+            await new_file.delete()
+
+            with open(f"pfp/{new_filename}{fileextension}", "wb") as u:
+                image.save(u,fileextension.strip("."))
             
-            await ctx.send('The following games are in the side games listing: {0}'.format(check))
-        except:
-            await errorchannel.send("[QUERY] Side gmaes list error")
-            await ctx.send('An error occurred when querying the game list.')
+            await ctx.respond(f"{new_filename} has been successfully added!")
+        else:
+            await ctx.respond(f"The URL provided is not a .jpg or .png file.")
+    except requests.exceptions.HTTPError as error:
+        await ctx.respond(f"An HTTPError exception was raised: {error}")
+    except TimeoutError as error:
+        await ctx.respond(f"Request timed out: {error}")
+    except Exception as error:
+        await ctx.respond(f"An error occurred: {error}").defer()
+
+@pfp.command()
+async def set(ctx, pic: discord.Option(str, autocomplete=discord.utils.basic_autocomplete(get_pfp_filenames))):
+    try:
+        with open(os.path.join("pfp", pic), "rb") as f:
+            avatar = f.read()
+        await client.user.edit(avatar=avatar)
+        await ctx.respond(f"Forced the new profile picture as {pic}")
+    except:
+        await ctx.respond("An error occurred when trying to force a profile picture.")
+
+client.add_application_command(pfp)
+
+@client.slash_command(description="Restart the bot. (Requires admin)")
+@commands.has_role(config.adminroles["admin"])
+async def restart(ctx):
+    try:
+        await ctx.respond("Restarting THPSBot...")
+        os.execv(sys.executable, ['python'] + sys.argv)
+    except:
+        await ctx.respond("")
+
+@client.slash_command(description="Create a new poll with reactions already added.")
+async def poll(ctx, *, question):
+    try:
+        await ctx.respond("Creating poll...", ephemeral=True)
+        poll_msg = await ctx.send(question)
+
+        await poll_msg.add_reaction("✅")
+        await poll_msg.add_reaction("❌")
+    except:
+        await ctx.respond("An error occurred when trying to make a poll.")
+
+###########################################################################################################################################################################
+###########################################################################################################################################################################
+@client.event
+async def on_raw_reaction_add(message):
+    try:
+        if message.emoji.id == config.tonysemoji and message.channel_id in config.tonyschannels:
+            channelid = message.channel_id
+            channel   = client.get_channel(channelid)
+            message   = await channel.fetch_message(message.message_id)
+
+            existing_reactions = [
+                reaction.emoji.id for reaction in message.reactions
+                if reaction.emoji.id == config.tonysemoji
+            ]
+            if len(existing_reactions) > 1:
+                await message.remove_reaction(config.tonysemoji,message.author)
+            else:
+                await local_tonysdb.main(0,(message.id,message.author.display_name,message.channel.name,message.content,message.created_at))
+    except:
+        await errorchannel.send("An error occurred when checking the reactions for the Tony's.")
 
 @client.event
-async def on_command_error(ctx, error):
+async def on_raw_reaction_remove(message):
+    try:
+        if message.emoji.id == config.tonysemoji and message.channel_id in config.tonyschannels:
+            channelid = message.channel_id
+            channel   = client.get_channel(channelid)
+            message   = await channel.fetch_message(message.message_id)
+
+            existing_reactions = [
+                reaction.emoji.id for reaction in message.reactions
+                if reaction.emoji.id == config.tonysemoji
+            ]
+            if len(existing_reactions) < 1:
+                await local_tonysdb.main(1,message.id)
+    except:
+        await errorchannel.send("An error occurred when checking the reactions for the Tony's.")
+
+@client.event
+async def on_command_error(message, error):
     if isinstance(error, commands.CommandOnCooldown):
         timeleft = round(error.retry_after)
-        await ctx.send("This command is on cooldown, you can use it in {0} seconds".format(timeleft))
+        await message.send(f"This command is on cooldown, you can use it in {timeleft} seconds")
 
 @tasks.loop(minutes=60)
 async def change_status():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
     try:
-        gamelist        = configdiscord["statusmessage"]
-        gamelist        = gamelist.split(',')
-        gamelistcount   = len(gamelist) -1
-        gamenum         = random.randint(0,gamelistcount)
-        gettime         = time.localtime()
-        gettime         = time.strftime("%H:%M:%S", gettime)
-        print("[{0}] [BOT] Changing game status to {1}".format(gettime,gamelist[gamenum].replace('"',"").replace("]","").replace("[","").strip()))
-        await client.change_presence(activity=discord.Game(name=gamelist[gamenum].replace('"',"").replace("]","").replace("[","").strip()))
+        connect = sqlite3.connect("dbs/statusmsg.db")
+        cursor  = connect.cursor()
+        cursor.execute("SELECT text FROM games ORDER BY RANDOM() LIMIT 1")
+        game = cursor.fetchone()
+        connect.close()
+
+        print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [BOT] Changing game status to {game[0]}")
+        await client.change_presence(activity=discord.Game(name=game[0]))
     except:
         await errorchannel.send("[STATUS] Status update error")
 
 @tasks.loop(hours=24)
 async def change_pfp():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    errorchannel = await client.fetch_channel(int(config.channels["error"]))
     try:
         pfp_list  = glob.glob("pfp/*")
         pfp_count = len(pfp_list) -1
@@ -184,233 +293,199 @@ async def change_pfp():
 ###########################################################################################################################################################################
 ###########################################################################################################################################################################
 
-@tasks.loop(minutes=5)
+@tasks.loop(minutes=1)
 async def start_livestream():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
-    configspeedrun = config["SpeedrunCom"]
-
     try:
-        gettime = time.localtime()
-        gettime = time.strftime("%H:%M:%S", gettime)
-        print("[{0}] [TWITCH] Starting Twitch livestream checks...".format(gettime))
+        print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [TWITCH] Starting Twitch livestream checks...")
 
-        streamchannel = client.get_channel(int(configdiscord["streamchannel"]))
+        streamchannel   = client.get_channel(int(config.channels["stream"]))
 
-        loadjson = open("./json/streamlist.json", "r")
-        streamlist = json.load(loadjson)
-        loadjson.close()
+        streamlist      = await local_streamdb.main(0,0)
+        onlinelist      = await local_onlinedb.main(0,0)
+        #youtubelist    = await local_onlinedb.main(3,0)
+        twitchlist      = await ttv_lookup.main(streamlist)
+        fulltwitchlist  = [row["user"].casefold() for row in twitchlist]
 
-        checkjson = open("./json/online.json", "r")
-        checkonlinelist = json.load(checkjson)
-        checkjson.close()
-
-        online = livestream.execute(streamlist)
-
-        if online == 0 or len(online) == 0:
+        if twitchlist == 0 or len(twitchlist) == 0:
             pass
-        elif isinstance(online,str):
-            await errorchannel.send(online)
-        elif len(online) != 0:
-            for stream in online:
-                status = 0
-                for onlinekey in checkonlinelist["Online"]:
-                    onlineuser = onlinekey["username"]
-                    if stream["user"].casefold() == onlineuser.casefold():
-                        status = 1
-                        print("--- {0} is online... Updating embed...".format(onlineuser))
-                        
-                        messageid = int(onlinekey["messageid"])
+        elif isinstance(twitchlist,str):
+            await errorchannel.send(twitchlist)
+        elif len(twitchlist) != 0:
+            for stream in twitchlist:
+                for onlinecheck in onlinelist:
+                    rungg = await rungg_lookup.main(onlinecheck[0])
+                    if onlinecheck[0].casefold() not in fulltwitchlist:
+                        print(f"--- {onlinecheck[0].casefold()} is now offline.")
+                        messageid = int(onlinecheck[1])
+                        verify = int(onlinecheck[2])
+
+                        finalid = await streamchannel.fetch_message(messageid)
+                        verifyid = await streamchannel.fetch_message(verify)
+
+                        await finalid.delete()
+                        await verifyid.delete()
+                        onlinelist = await local_onlinedb.main(2,onlinecheck[0].casefold())
+
+                    elif onlinecheck[0].casefold() == onlinecheck[0].casefold():                        
+                        print(f"--- {stream['user']} is online, updating embed.")
+                        messageid = int(onlinecheck[1])
 
                         embed=discord.Embed(
                             title=stream["title"],
-                            url="https://twitch.tv/"+stream["user"],
-                            description="[Click here to watch](https://twitch.tv/{0})".format(stream["user"]),
+                            url="https://twitch.tv/"+onlinecheck[0],
+                            description=f"[Click here to watch](https://twitch.tv/{onlinecheck[0]})",
                             color=random.randint(0, 0xFFFFFF),
                             timestamp=datetime.datetime.utcnow()
                         )
-                        embed.set_author(name=stream["user"]+" is live on Twitch!", url="https://twitch.tv/"+stream["user"], icon_url=stream["pfp"])
+                        
+                        embed.set_author(name=onlinecheck[0]+" is live on Twitch!", url="https://twitch.tv/"+onlinecheck[0], icon_url=stream["pfp"])
                         embed.add_field(name="Game", value=stream["gname"], inline=True)
-                        embed.set_footer(text=configdiscord["botver"])
+                        embed.set_footer(text=config.botver)
                         embed.set_image(url=stream["tnail"])
+                        
+                        if len(rungg) > 0:
+                            rungg = rungg[0]
+                            embed.add_field(name="Category", value=rungg["category"], inline=True)
+                            embed.add_field(name="", value="", inline=False)
+
+                            if rungg["hasReset"] == False:
+                                if rungg["lastSplitName"] != False:
+                                    embed.add_field(name="Previous Split [Delta]", value=f"{rungg['lastSplitName']} [{rungg['lastSplitTime']}]", inline=True)
+                                
+                                embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
+                            else:
+                                embed.add_field(name="Status", value="Run Reset", inline=True)
 
                         editid = await streamchannel.fetch_message(messageid)
                         await editid.edit(embed=embed)
+                    else:
+                        embed=discord.Embed(
+                            title=stream["title"],
+                            url="https://twitch.tv/"+onlinecheck[0],
+                            description=f"[Click here to watch](https://twitch.tv/{stream['user']})",
+                            color=random.randint(0, 0xFFFFFF),
+                            timestamp=datetime.datetime.utcnow()
+                        )
 
-                        break
+                        embed.set_author(name=onlinecheck[0]+" is live on Twitch!", url="https://twitch.tv/"+onlinecheck[0], icon_url=stream["pfp"])
+                        embed.set_footer(text=config.botver)
+                        embed.set_image(url=stream["tnail"])
+                        embed.add_field(name="Game", value=stream["gname"], inline=True)
 
-                if status == 0:
-                    embed=discord.Embed(
-                        title=stream["title"],
-                        url="https://twitch.tv/"+stream["user"],
-                        description="[Click here to watch](https://twitch.tv/{0})".format(stream["user"]),
-                        color=random.randint(0, 0xFFFFFF),
-                        timestamp=datetime.datetime.utcnow()
-                    )
-                    embed.set_author(name=stream["user"]+" is live on Twitch!", url="https://twitch.tv/"+stream["user"], icon_url=stream["pfp"])
-                    embed.add_field(name="Game", value=stream["gname"], inline=True)
-                    embed.set_footer(text=configdiscord["botver"])
-                    embed.set_image(url=stream["tnail"])
+                        if len(rungg) > 0:
+                            rungg = rungg[0]                   
+                            embed.add_field(name="Category", value=rungg["category"], inline=True)
+                            embed.add_field(name="", value="", inline=False)
 
-                    grabmessage = await streamchannel.send(embed=embed)
-                    verify = await streamchannel.send("<@&{0}>".format(configspeedrun["Stream"]))
+                            if rungg["hasReset"] == False:
+                                if rungg["lastSplitName"] != False:
+                                    embed.add_field(name="Previous Split [Delta]", value=f"{rungg['lastSplitName']} [{rungg['lastSplitTime']}]", inline=True)
+                                
+                                embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
+                            else:
+                                embed.add_field(name="Status", value="Run Reset", inline=True)
 
-                    onlinejson = open("./json/online.json", "r")
-                    onlinelist = json.load(onlinejson)
-                    onlinelist["Online"].append({"username":stream["user"],"messageid":grabmessage.id,"alert":verify.id})
-                    onlinejson.close()
+                        grabmessage = await streamchannel.send(embed=embed)
+                        verify = await streamchannel.send(f"<@&{config.roles['Stream']}>")
 
-                    onlinejson = open("./json/online.json","w")
-                    onlinejson.write(json.dumps(onlinelist))
-                    onlinejson.close()
-
-        checkjson = open("./json/online.json", "r")
-        checkonlinelist = json.load(checkjson)
-        checkjson.close()
-
-        for key in checkonlinelist["Online"]:
-            username = key["username"]
-            messageid = key["messageid"]
-            alert = key["alert"]
-
-            status = 0
-            for stream in online:
-                if stream["user"].casefold() == username.casefold():
-                    status = 1
-                    break
-
-            if status == 0:
-                print("--- {0} has gone offline... Removing embed...".format(username))
-                del key["username"]
-                del key["messageid"]
-                del key["alert"]
-
-                messageid = int(messageid)
-                verify = int(alert)
-
-                finalid = await streamchannel.fetch_message(messageid)
-                verifyid = await streamchannel.fetch_message(verify)
-                
-                await finalid.delete()
-                await verifyid.delete()
-
-        onlinejson = open("./json/online.json", "w")
-        checkonlinelist = json.dumps(checkonlinelist)
-        checkonlinelist = checkonlinelist.replace('{}, ','').replace(', {}', '').replace('{}','').replace('\\','').replace('"{','').replace('}"','')
-        onlinejson.write(checkonlinelist)
-        onlinejson.close()
-            
+                        await local_onlinedb.main(1,(stream["user"],grabmessage.id,verify.id))
         
-        gettime = time.localtime()
+        print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [TWITCH] Completed Twitch livestream checks...")
 
-        gettime = time.strftime("%H:%M:%S", gettime)
-        print("[{0}] [TWITCH] Completed Twitch livestream checks...".format(gettime))
     except:
         print(traceback.format_exc())
         await errorchannel.send("[LIVESTREAM STATUS] An unknown error occurred")
 
 @tasks.loop(minutes=30)
 async def start_srcom():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    try:
+        submissionschannel = client.get_channel(int(config.channels["sub"]))
+        pbschannel = client.get_channel(int(config.channels["pb"]))
 
-    gettime = time.localtime()
-    gettime = time.strftime("%H:%M:%S", gettime)
-    print("[{0}] [SRCOM] Checking Speedrun.com API for submissions...".format(gettime))
-    submissionschannel = client.get_channel(int(configdiscord["subchannel"]))
-    pbschannel = client.get_channel(int(configdiscord["pbchannel"]))
-    configspeedrun = config["SpeedrunCom"]
+        print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [SRCOM] Checking Speedrun.com API for submissions...")
 
-    loadjson = open("./json/submissions.json", "r")
-    submissions = json.load(loadjson)
-    loadjson.close()
+        games = await src_api_call.main("https://speedrun.com/api/v1/series/tonyhawk/games?max=50")
 
-    games = requests.get("https://speedrun.com/api/v1/series/tonyhawk/games?max=50").json()["data"]
-
-    for game in games:
-        queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["id"])).json()["data"]
-        
-        for lookup in queue:
-            breaker = 0
-            for submissionkey in submissions["Submitted"]:
-                if submissionkey["id"] == lookup["id"]:
-                    breaker = 1
-                    break
+        for game in games:
+            queue = await src_api_call.main(f"https://speedrun.com/api/v1/runs?status=new&game={game['id']}")
             
-            if breaker == 0:
-                print("--- New submission found ({0})".format(lookup["id"]))
-                unapprovedrun = srlookup.execute(lookup,0)
+            for lookup in queue:
+                breaker = 0
+
+                submissions = await local_submissionsdb.main(0,0)
+                for submission in submissions:
+                    if submission[0] == lookup["id"]:
+                        breaker = 1
+                        break
                 
-                if isinstance(unapprovedrun,str):
-                    await errorchannel.send(unapprovedrun)
-                    break
+                if breaker == 0:
+                    print(f"--- New submission found ({lookup['id']})")
+                    unapprovedrun = await src_lookup.main(0,lookup)
+                    
+                    if isinstance(unapprovedrun,str):
+                        await errorchannel.send(unapprovedrun)
+                        break
 
-                if unapprovedrun["lvlid"] == "NoILFound" or unapprovedrun["subcatname"] == "(0)": title = unapprovedrun["gname"]
-                else: title = unapprovedrun["gname"] + " (IL)" 
+                    if unapprovedrun["lvlid"] == "NoILFound" or unapprovedrun["subcatname"] == "(0)": title = unapprovedrun["gname"]
+                    else: title = unapprovedrun["gname"] + " (IL)" 
 
-                embed = discord.Embed(
-                    title=title,
-                    url=unapprovedrun["link"],
-                    color=random.randint(0, 0xFFFFFF),
-                    timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
-                )
-                embed = embed.to_dict()
+                    embed = discord.Embed(
+                        title=title,
+                        url=unapprovedrun["link"],
+                        color=random.randint(0, 0xFFFFFF),
+                        timestamp=datetime.datetime.fromisoformat(unapprovedrun["date"][:-1])
+                    )
+                    embed = embed.to_dict()
 
-                if unapprovedrun["subcatname"] == "(0)":
-                    embed.update({"description": "{0} in {1} {2}".format(unapprovedrun["cname"],unapprovedrun["time"],unapprovedrun["runtype"])})
-                else:
-                    embed.update({"description": "{0} {1} in {2} {3}".format(unapprovedrun["cname"],unapprovedrun["subcatname"],unapprovedrun["time"],unapprovedrun["runtype"])})
-
-                embed = discord.Embed.from_dict(embed)
-
-                if unapprovedrun["pfp"] == None: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
-                else: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url=unapprovedrun["pfp"])
-                embed.set_footer(text=configdiscord["botver"])
-                embed.set_thumbnail(url=unapprovedrun["gcover"])
-
-                try:
-                    if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]) and ("thps4ce" not in unapprovedrun["abbr"]):
-                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun["THPS4IL"]))
-                    elif ("gbc" in unapprovedrun["abbr"]):
-                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gbc",""))
-                    elif ("gba" in unapprovedrun["abbr"]):
-                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("gba",""))
-                    elif ("psp" in unapprovedrun["abbr"]) :
-                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]).replace("psp",""))
+                    if unapprovedrun["subcatname"] == "(0)":
+                        embed.update({"description": f"{unapprovedrun['cname']} in {unapprovedrun['time']} {unapprovedrun['runtype']}"})
                     else:
-                        verify = await submissionschannel.send("<@&{0}>".format(configspeedrun[unapprovedrun["abbr"]]))
-                except:
-                    verify = await submissionschannel.send("No role found")
-                grabmessage = await submissionschannel.send(embed=embed)
+                        embed.update({"description": f"{unapprovedrun['cname']} {unapprovedrun['subcatname']} in {unapprovedrun['time']} {unapprovedrun['runtype']}"})
 
-                onlinejson = open("./json/submissions.json", "r")
-                onlinelist = json.load(onlinejson)
+                    embed = discord.Embed.from_dict(embed)
 
-                onlinelist["Submitted"].append({"id":unapprovedrun["id"],"verifyid":verify.id,"messageid":grabmessage.id,"wrseconds":unapprovedrun["wrsecs"]})
-                onlinejson.close()
+                    if unapprovedrun["pfp"] == None: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
+                    else: embed.set_author(name=unapprovedrun["pname"], url=unapprovedrun["link"], icon_url=unapprovedrun["pfp"])
+                    embed.set_footer(text=config.botver)
+                    embed.set_thumbnail(url=unapprovedrun["gcover"])
 
-                onlinejson = open("./json/submissions.json","w")
-                onlinejson.write(json.dumps(onlinelist))
-                onlinejson.close()
+                    try:
+                        if ("IL" in title) and ("thps4" in unapprovedrun["abbr"]) and ("thps4ce" not in unapprovedrun["abbr"]):
+                            verify = await submissionschannel.send("<@&{0}>".format(config.roles["THPS4IL"]))
+                        elif ("gbc" in unapprovedrun["abbr"]):
+                            verify = await submissionschannel.send("<@&{0}>".format(config.roles[unapprovedrun["abbr"]].upper()).replace("gbc",""))
+                        elif ("gba" in unapprovedrun["abbr"]):
+                            verify = await submissionschannel.send("<@&{0}>".format(config.roles[unapprovedrun["abbr"]].upper()).replace("gba",""))
+                        elif ("psp" in unapprovedrun["abbr"]) :
+                            verify = await submissionschannel.send("<@&{0}>".format(config.roles[unapprovedrun["abbr"]].upper()).replace("psp",""))
+                        else:
+                            verify = await submissionschannel.send("<@&{0}>".format(config.roles[unapprovedrun["abbr"].upper()]))
+                    except:
+                        verify = await submissionschannel.send("No role found")
 
-    loadjson = open("./json/submissions.json", "r")
-    submissions = json.load(loadjson)
-    loadjson.close()
+                    grabmessage = await submissionschannel.send(embed=embed)
 
-    for key in submissions["Submitted"]:
-        runid = key["id"]
-        messageid = key["messageid"]
-        verifyid = key["verifyid"]
+                    subtuple = (unapprovedrun["id"],verify.id,grabmessage.id,unapprovedrun["wrsecs"])
+                    await local_submissionsdb.main(1,subtuple)
 
-        print("--- Verifying status of {0}".format(runid))
-        try:
-            check = requests.get("https://speedrun.com/api/v1/runs/{0}".format(runid)).json()["data"]["status"]["status"]
-        except:
-            check = 0
+        submissions = await local_submissionsdb.main(0,0)
 
-        try:
+        for submission in submissions:
+            runid = submission[0]
+            verifyid = submission[1]
+            messageid = submission[2]
+            
+            print(f"--- Verifying status of {runid}")
+            check = await src_api_call.main(f"https://speedrun.com/api/v1/runs/{runid}")
+            check = check["status"]["status"]
+            if isinstance(check, int):
+                print("--- AN ERROR OCCURRED!")
+                return
+
             if check == "verified" or check == "rejected" or check == 0:
                 if check == "verified":
-                    print("--- {0} has been approved!".format(runid))
-                    approval = srapproval.execute(runid)
+                    print(f"--- {runid} has been approved!")
+                    approval = await src_approval.main(runid)
 
                     if isinstance(approval,str):
                         await errorchannel.send(approval)
@@ -433,205 +508,146 @@ async def start_srcom():
 
                         if approval[0] == 1:
                             if approval[4]["subcatname"] == "(0)":
-                                embed.update({"title": "\U0001f3c6 {0} \U0001f3c6".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"\U0001f3c6 {discordtitle} \U0001f3c6"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} in {approval[4]['time']} {approval[4]['runtype']}"})
                             else:
-                                embed.update({"title": "\U0001f3c6 {0} \U0001f3c6".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"\U0001f3c6 {discordtitle} \U0001f3c6"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} {approval[4]['subcatname']} in {approval[4]['time']} {approval[4]['runtype']}"})
 
                         elif approval[0] == 2:
                             if approval[4]["subcatname"] == "(0)":
-                                embed.update({"title": "\U0001f948 {0} \U0001f948".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"\U0001f948 {discordtitle} \U0001f948"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} in {approval[4]['time']} {approval[4]['runtype']}"})
                             else:
-                                embed.update({"title": "\U0001f948 {0} \U0001f948".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"\U0001f948 {discordtitle} \U0001f948"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} {approval[4]['subcatname']} in {approval[4]['time']} {approval[4]['runtype']}"})
 
                         elif approval[0] == 3:
                             if approval[4]["subcatname"] == "(0)":
-                                embed.update({"title": "\U0001f949 {0} \U0001f949".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"\U0001f949 {discordtitle} \U0001f949"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} in {approval[4]['time']} {approval[4]['runtype']}"})
                             else:
-                                embed.update({"title": "\U0001f949 {0} \U0001f949".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"\U0001f949 {discordtitle} \U0001f949"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} {approval[4]['subcatname']} in {approval[4]['time']} {approval[4]['runtype']}"})
 
                         else:
                             if approval[4]["subcatname"] == "(0)":
-                                embed.update({"title": "{0}".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"{discordtitle}"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} in {approval[4]['time']} {approval[4]['runtype']}"})
                             else:
-                                embed.update({"title": "{0}".format(discordtitle)})
-                                embed.update({"description": "{0}\n{1} {2} in {3} {4}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["subcatname"],approval[4]["time"],approval[4]["runtype"])})
+                                embed.update({"title": f"{discordtitle}"})
+                                embed.update({"description": f"{approval[4]['gname']}\n{approval[4]['cname']} {approval[4]['subcatname']} in {approval[4]['time']} {approval[4]['runtype']}"})
                 
                         embed = discord.Embed.from_dict(embed)
 
-                        if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url="https://speedrun.com/{0}".format(approval[4]["pname"]), icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
-                        else: embed.set_author(name=approval[4]["pname"], url="https://speedrun.com/{0}".format(approval[4]["pname"]), icon_url=approval[4]["pfp"])
-                        embed.add_field(name="Placing", value="{0} / {1}".format(approval[0],approval[5]), inline=True)
+                        if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=f"https://speedrun.com/{approval[4]['pname']}", icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
+                        else: embed.set_author(name=approval[4]["pname"], url=f"https://speedrun.com/{approval[4]['pname']}", icon_url=approval[4]["pfp"])
+                        embed.add_field(name="Placing", value=f"{approval[0]} / {approval[5]}", inline=True)
                         embed.add_field(name="Points", value=approval[1], inline=True)
                         embed.add_field(name="Platform", value=approval[4]["platform"], inline=True)
                         
                         ctime = str(datetime.timedelta(seconds=approval[3]))
-                        if key["wrseconds"] != "NoWR":
-                            wtime = str(datetime.timedelta(seconds=key["wrseconds"]))
+                        if submission[3] != "NoWR":
+                            wtime = str(datetime.timedelta(seconds=submission[3]))
 
-                            if float(approval[3]) > float(key["wrseconds"]):
-                                delta = str(datetime.timedelta(seconds=(approval[3] - key["wrseconds"])))
+                            if float(approval[3]) > float(submission[3]):
+                                delta = str(datetime.timedelta(seconds=(approval[3] - submission[3])))
                             else:
-                                delta = str(datetime.timedelta(seconds=(key["wrseconds"]) - approval[3]))
+                                delta = str(datetime.timedelta(seconds=(submission[3]) - approval[3]))
 
                         if approval[4]["lvlid"] != "NoILFound":
                             if "." in ctime:
                                 ctime = ctime[:-3]
-                                if key["wrseconds"] != "NoWR":
+                                if submission[3] != "NoWR":
                                     wtime = wtime[:-3]
                                     delta = delta[:-3]
                         
-                        if key["wrseconds"] == "NoWR":
+                        if submission[3] == "NoWR":
                             embed.add_field(name="No Previous WR", value="No Previous WR", inline=True)
-                        elif float(approval[3]) - float(key["wrseconds"]) == 0 and not approval[2] == approval[3]:
+                        elif float(approval[3]) - float(submission[3]) == 0 and not approval[2] == approval[3]:
                             embed.add_field(name="Tied WR", value = "Tied WR", inline=True)
                         elif approval[0] == 1:
-                            embed.add_field(name="Last WR [Delta]", value="{0} [-{1}]".format(wtime,delta), inline=True)
+                            embed.add_field(name="Last WR [Delta]", value=f"{wtime} [-{delta}]", inline=True)
                         else:
-                            embed.add_field(name="WR [Delta]", value="{0} [+{1}]".format(wtime,delta), inline=True)
+                            embed.add_field(name="WR [Delta]", value=f"{wtime} [+{delta}]", inline=True)
 
                         embed.add_field(name="Completed Runs", value=approval[4]["ptotalruns"], inline=True)
 
                         if approval[4]["runcomment"] != None:
-                            if len(approval[4]["runcomment"]) >= 500:
-                                embed.add_field(name="Comments", value="*{0}...*".format(approval[4]["runcomment"][:450].replace("\r","")),inline=False)
+                            if len(approval[4]["runcomment"]) >= 350:
+                                embed.add_field(name="Comments", value="*`{0}...*`".format(approval[4]["runcomment"][:300].replace("\r","")),inline=False)
                             else:
                                 embed.add_field(name="Comments", value="*{0}*".format(approval[4]["runcomment"].replace("\r","")),inline=False)
 
-                        embed.set_footer(text=configdiscord["botver"])
+                        embed.set_footer(text=config.botver)
                         embed.set_thumbnail(url=approval[4]["gcover"])
 
                         await pbschannel.send(embed=embed)
                     else:
-                        print("--- {0} is an obsolete submission.".format(runid))
+                        print(f"--- {runid} is an obsolete submission.")
                 else:
-                    print("--- {0} has been rejected or deleted...".format(runid))
+                    print(f"--- {runid} has been rejected or deleted...")
                 
-                del key["id"]
-                del key["verifyid"]
-                del key["messageid"]
-                del key["wrseconds"]
+                await local_submissionsdb.main(2,runid)
 
                 messageid = int(messageid)
 
                 finalid = await submissionschannel.fetch_message(messageid)
                 await finalid.delete()
 
-                time.sleep(1)
+                time.sleep(.500)
 
                 finalid = await submissionschannel.fetch_message(verifyid)
                 await finalid.delete()
 
                 if approval[4]["pttv"] != 0:
-                    loadjson = open("./json/streamlist.json", "r")
-                    streamlist = json.load(loadjson)
+                    onlinelist = await local_streamdb.main(0,0)
+                    if approval[4]["pttv"].casefold() not in onlinelist:
+                        await local_streamdb.main(1,approval[4]["pttv"].lower())
 
-                    streambreaker = 0
-                    for key in streamlist["Streams"]["Twitch"]:
-                        username = key["username"]
-                        if username.casefold() == approval[4]["pttv"].casefold():
-                            streambreaker = 1
-                            break
-
-                    if streambreaker == 0:
-                        streamlist["Streams"]["Twitch"].append({"username":approval[4]["pttv"].lower()})
-
-                        loadjson.close()
-                        loadjson = open("./json/streamlist.json", "w")
-                        loadjson.write(json.dumps(streamlist))
-                        break
-                    
-                    loadjson.close()
-
-        except Exception as exception:
-            print(exception)
-
-    onlinejson = open("./json/submissions.json", "w")
-
-    submissions = json.dumps(submissions)
-    submissions = submissions.replace('{}, ','').replace(', {}', '').replace('{}','').replace('\\','').replace('"{','').replace('}"','')
-
-    onlinejson.write(submissions)
-    onlinejson.close()
+    except Exception as exception:
+        print(exception)
 
 @tasks.loop(minutes=30)
 async def start_side_srcom():
-    errorchannel = await client.fetch_channel(int(configdiscord["error"]))
+    try:
+        print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [SRCOM] Checking side game Speedrun.com API for submissions...")
+        nonpbschannel = client.get_channel(int(config.channels["nonpb"]))
 
-    gettime = time.localtime()
-    gettime = time.strftime("%H:%M:%S", gettime)
-    print("[{0}] [SRCOM] Checking side game Speedrun.com API for submissions...".format(gettime))
-    nonpbschannel = client.get_channel(int(configdiscord["nonpbchannel"]))
+        sidegames = await local_sidegamesdb.main()
+        submissions = await local_submissionsdb.main(3,0)
 
-    loadjson = open("./json/sidesubmissions.json", "r")
-    submissions = json.load(loadjson)
-    loadjson.close()
+        for game in [row.casefold() for row in sidegames]:
+            queue = await src_api_call.main(f"https://speedrun.com/api/v1/runs?status=new&game={game}")
 
-    loadsidegamejson = open("./json/sidegames.json", "r")
-    sidegames = json.load(loadsidegamejson)
-    loadsidegamejson.close()
-
-    for game in sidegames["Games"]:
-        queue = requests.get("https://speedrun.com/api/v1/runs?status=new&game={0}".format(game["gameid"])).json()["data"]
-        for lookup in queue:
-            breaker = 0
-            secondbreaker = 1
-            for submissionkey in submissions["Submitted"]:
-                if submissionkey["id"] == lookup["id"]:
-                    breaker = 1
+            for lookup in queue:
+                if lookup["id"] in [row[0].casefold() for row in submissions]:
                     break
-            
-            runlookup = requests.get("https://speedrun.com/api/v1/users/{0}/personal-bests?embed=game".format(lookup["players"][0]["id"])).json()["data"]
-            
-            if breaker == 0:
+
+                runlookup = await src_api_call.main(f"https://speedrun.com/api/v1/users/{lookup['players'][0]['id']}/personal-bests?embed=game")
+                            
                 for run in runlookup:
                     gamename = run["game"]["data"]["names"]["international"]
-
                     if "Tony Hawk" in gamename or "THPS" in gamename:
-                        secondbreaker = 0
                         break
 
-            if secondbreaker == 1:
-                print("--- Skipping out on current run...")
-            elif secondbreaker == 0:
-                print("--- New submission found ({0})".format(lookup["id"]))
-                unapprovedrun = srlookup.execute(lookup,0)
+                print(f"--- New submission found ({lookup['id']})")
+                unapprovedrun = await src_lookup.main(0,lookup)
                 
                 if isinstance(unapprovedrun,str):
-                    await errorchannel.send(unapprovedrun)
+                    await errorchannel.send("Error encountered running start_side_srcom")
                     break
 
-                onlinejson = open("./json/sidesubmissions.json", "r")
-                onlinelist = json.load(onlinejson)
-                onlinelist["Submitted"].append({"id":unapprovedrun["id"],"wrseconds":unapprovedrun["wrsecs"]})
-                onlinejson.close()
+                await local_submissionsdb.main(4,{"id":unapprovedrun["id"],"wrseconds":unapprovedrun["wrsecs"]})
 
-                onlinejson = open("./json/sidesubmissions.json","w")
-                onlinejson.write(json.dumps(onlinelist))
-                onlinejson.close()
-
-    loadjson = open("./json/sidesubmissions.json", "r")
-    submissions = json.load(loadjson)
-    loadjson.close()
-
-    for key in submissions["Submitted"]:
-        runid = key["id"]
-
-        print("--- Verifying status of {0}".format(runid))
-        try: check = requests.get("https://speedrun.com/api/v1/runs/{0}".format(runid)).json()["data"]["status"]["status"]
-        except: check = 0
-
-        try:
+        for key in submissions:
+            print(f"--- Verifying status of {key[0]}")
+            check = await src_api_call.main(f"https://speedrun.com/api/v1/runs/{key[0]}")["status"]["status"]
+            
             if check == "verified" or check == "rejected" or check == 0:
                 if check == "verified":
-                    print("--- {0} has been approved!".format(runid))
-                    approval = srapproval.execute(runid)
+                    print(f"--- {key[0]} has been approved!")
+                    approval = await src_approval.main(key[0])
 
                     if isinstance(approval,str):
                         await errorchannel.send(approval)
@@ -639,16 +655,16 @@ async def start_side_srcom():
                     
                     if approval[0] == 1:
                         embed = discord.Embed(
-                            title="NEW VERIFIED TIME".format(approval[4]["gname"].upper()),
+                            title="NEW VERIFIED TIME",
                             url=approval[4]["link"],
-                            description="{0}\n{1} in {2} {3}".format(approval[4]["gname"],approval[4]["cname"],approval[4]["time"],approval[4]["runtype"]),
+                            description=f"{approval[4]['gname']}\n{approval[4]['cname']} in {approval[4]['time']} {approval[4]['runtype']}",
                             color=random.randint(0, 0xFFFFFF),
                             timestamp=datetime.datetime.fromisoformat(approval[6][:-1])
                         )
                 
                         if approval[4]["pfp"] == None: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url="https://cdn.discordapp.com/attachments/83090266910621696/868581069492985946/3x.png")
                         else: embed.set_author(name=approval[4]["pname"], url=approval[4]["link"], icon_url=approval[4]["pfp"])
-                        embed.add_field(name="Placing", value="{0} / {1}".format(approval[0],approval[5]), inline=True)
+                        embed.add_field(name="Placing", value=f"{approval[0]} / {approval[5]}", inline=True)
                         embed.add_field(name="Platform", value=approval[4]["platform"], inline=True)
                         
                         ctime = str(datetime.timedelta(seconds=approval[3]))
@@ -672,39 +688,29 @@ async def start_side_srcom():
                         elif float(approval[3]) == float(key["wrseconds"]):
                             embed.add_field(name="Tied WR", value = "Tied WR", inline=True)
                         elif approval[0] == 1:
-                            embed.add_field(name="Last WR [Delta]", value="{0} [-{1}]".format(wtime,delta), inline=True)
+                            embed.add_field(name="Last WR [Delta]", value=f"{wtime} [-{delta}]", inline=True)
                         else:
-                            embed.add_field(name="WR [Delta]", value="{0} [+{1}]".format(ctime,delta), inline=True)
+                            embed.add_field(name="WR [Delta]", value=f"{ctime} [+{delta}]", inline=True)
 
                         embed.add_field(name="Completed Runs", value=approval[4]["ptotalruns"], inline=True)
 
                         if approval[4]["runcomment"] != None:
-                            if len(approval[4]["runcomment"]) >= 500:
-                                embed.add_field(name="Comments", value="*{0}...*".format(approval[4]["runcomment"][:450].replace("\r","")),inline=False)
+                            if len(approval[4]["runcomment"]) >= 350:
+                                    embed.add_field(name="Comments", value="*`{0}...*`".format(approval[4]["runcomment"][:300].replace("\r","")),inline=False)
                             else:
                                 embed.add_field(name="Comments", value="*{0}*".format(approval[4]["runcomment"].replace("\r","")),inline=False)
 
-                        embed.set_footer(text=configdiscord["botver"])
+                        embed.set_footer(text=config.botver) 
                         embed.set_thumbnail(url=approval[4]["gcover"])
 
                         await nonpbschannel.send(embed=embed)
                     else:
-                        print("--- {0} is an obsolete submission.".format(runid))
+                        print(f"--- {key[0]} is an obsolete submission.")
                 else:
-                    print("--- {0} has been rejected or deleted...".format(runid))
+                    print(f"--- {key[0]} has been rejected or deleted...")
 
-                del key["id"]
-                del key["wrseconds"]
+                await local_submissionsdb.main(5,key[0])
+    except Exception as exception:
+        print(exception)
 
-        except Exception as exception:
-            print(exception)
-
-    onlinejson = open("./json/sidesubmissions.json", "w")
-
-    submissions = json.dumps(submissions)
-    submissions = submissions.replace('{}, ','').replace(', {}', '').replace('{}','').replace('\\','').replace('"{','').replace('}"','')
-
-    onlinejson.write(submissions)
-    onlinejson.close()
-
-client.run(configdiscord["distoken"], reconnect=True)
+client.run(config.distoken, reconnect=True)
