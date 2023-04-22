@@ -38,20 +38,20 @@ async def on_ready():
     global errorchannel
     errorchannel = await client.fetch_channel(int(config.channels["error"]))
 
-    if not start_livestream.is_running():
-        start_livestream.start()
+    #if not start_livestream.is_running():
+    #    start_livestream.start()
 
-    if not change_status.is_running():
-        change_status.start()
+    #if not change_status.is_running():
+    #    change_status.start()
 
-    if not change_pfp.is_running():
-        change_pfp.start()
+    #if not change_pfp.is_running():
+    #    change_pfp.start()
 
-    if not start_srcom.is_running():
-        start_srcom.start()
+    #if not start_srcom.is_running():
+    #    start_srcom.start()
 
-    if not start_side_srcom.is_running():
-        start_side_srcom.start()
+    #if not start_side_srcom.is_running():
+    #    start_side_srcom.start()
 
 @client.slash_command(description="Quick check to see if the bot is responding to requests.")
 @commands.cooldown(1, 10, commands.BucketType.user)
@@ -228,16 +228,16 @@ async def on_raw_reaction_add(message):
         if message.emoji.id == config.tonysemoji and message.channel_id in config.tonyschannels:
             channelid = message.channel_id
             channel   = client.get_channel(channelid)
-            message   = await channel.fetch_message(message.message_id)
+            reactmsg  = await channel.fetch_message(message.message_id)
 
-            existing_reactions = [
-                reaction.emoji.id for reaction in message.reactions
-                if reaction.emoji.id == config.tonysemoji
-            ]
-            if len(existing_reactions) > 1:
-                await message.remove_reaction(config.tonysemoji,message.author)
-            else:
-                await local_tonysdb.main(0,(message.id,message.author.display_name,message.channel.name,message.content,message.created_at))
+            for reaction, data in enumerate(reactmsg.reactions):
+                if hasattr(data.emoji, 'id'):
+                    if data.emoji.id == config.tonysemoji:
+                        existing_reactions = reactmsg.reactions[reaction].count
+
+            if existing_reactions >= 1:
+                await local_tonysdb.main(0,(reactmsg.id,reactmsg.author.display_name,reactmsg.channel.name,reactmsg.content,reactmsg.created_at))
+
     except:
         await errorchannel.send("An error occurred when checking the reactions for the Tony's.")
 
@@ -247,14 +247,15 @@ async def on_raw_reaction_remove(message):
         if message.emoji.id == config.tonysemoji and message.channel_id in config.tonyschannels:
             channelid = message.channel_id
             channel   = client.get_channel(channelid)
-            message   = await channel.fetch_message(message.message_id)
+            reactmsg  = await channel.fetch_message(message.message_id)
 
-            existing_reactions = [
-                reaction.emoji.id for reaction in message.reactions
-                if reaction.emoji.id == config.tonysemoji
-            ]
-            if len(existing_reactions) < 1:
-                await local_tonysdb.main(1,message.id)
+            for reaction, data in enumerate(reactmsg.reactions):
+                if hasattr(data.emoji, 'id'):
+                    if data.emoji.id == config.tonysemoji:
+                        existing_reactions = reactmsg.reactions[reaction].count
+
+            if existing_reactions < 1:
+                await local_tonysdb.main(1,reactmsg.id)
     except:
         await errorchannel.send("An error occurred when checking the reactions for the Tony's.")
 
