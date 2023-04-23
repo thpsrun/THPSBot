@@ -38,20 +38,20 @@ async def on_ready():
     global errorchannel
     errorchannel = await client.fetch_channel(int(config.channels["error"]))
 
-    #if not start_livestream.is_running():
-    #    start_livestream.start()
+    if not start_livestream.is_running():
+        start_livestream.start()
 
-    #if not change_status.is_running():
-    #    change_status.start()
+    if not change_status.is_running():
+        change_status.start()
 
-    #if not change_pfp.is_running():
-    #    change_pfp.start()
+    if not change_pfp.is_running():
+        change_pfp.start()
 
-    #if not start_srcom.is_running():
-    #    start_srcom.start()
+    if not start_srcom.is_running():
+        start_srcom.start()
 
-    #if not start_side_srcom.is_running():
-    #    start_side_srcom.start()
+    if not start_side_srcom.is_running():
+        start_side_srcom.start()
 
 @client.slash_command(description="Quick check to see if the bot is responding to requests.")
 @commands.cooldown(1, 10, commands.BucketType.user)
@@ -336,18 +336,19 @@ async def start_livestream():
                         embed.set_footer(text=config.botver)
                         embed.set_image(url=stream["tnail"])
                         
-                        if len(rungg) > 0:
-                            rungg = rungg[0]
-                            embed.add_field(name="Category", value=rungg["category"], inline=True)
-                            embed.add_field(name="", value="", inline=False)
+                        if rungg is not None:
+                            if len(rungg) > 0:
+                                rungg = rungg[0]
+                                embed.add_field(name="Category", value=rungg["category"], inline=True)
+                                embed.add_field(name="", value="", inline=False)
 
-                            if rungg["hasReset"] == False:
-                                if rungg["lastSplitName"] != False:
-                                    embed.add_field(name="Previous Split [Delta]", value=f"{rungg['lastSplitName']} [{rungg['lastSplitTime']}]", inline=True)
-                                
-                                embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
-                            else:
-                                embed.add_field(name="Status", value="Run Reset", inline=True)
+                                if rungg["hasReset"] == False:
+                                    if rungg["lastSplitName"] != False:
+                                        embed.add_field(name="Previous Split [Delta]", value=f"{rungg['lastSplitName']} [{rungg['lastSplitTime']}]", inline=True)
+                                    
+                                    embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
+                                else:
+                                    embed.add_field(name="Status", value="Run Reset", inline=True)
 
                         editid = await streamchannel.fetch_message(messageid)
                         await editid.edit(embed=embed)
@@ -366,18 +367,19 @@ async def start_livestream():
                         embed.set_image(url=stream["tnail"])
                         embed.add_field(name="Game", value=stream["gname"], inline=True)
 
-                        if len(rungg) > 0:
-                            rungg = rungg[0]                   
-                            embed.add_field(name="Category", value=rungg["category"], inline=True)
-                            embed.add_field(name="", value="", inline=False)
+                        if rungg is not None:
+                            if len(rungg) > 0:
+                                rungg = rungg[0]                   
+                                embed.add_field(name="Category", value=rungg["category"], inline=True)
+                                embed.add_field(name="", value="", inline=False)
 
-                            if rungg["hasReset"] == False:
-                                if rungg["lastSplitName"] != False:
-                                    embed.add_field(name="Previous Split [Delta]", value=f"{rungg['lastSplitName']} [{rungg['lastSplitTime']}]", inline=True)
-                                
-                                embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
-                            else:
-                                embed.add_field(name="Status", value="Run Reset", inline=True)
+                                if rungg["hasReset"] == False:
+                                    if rungg["lastSplitName"] != False:
+                                        embed.add_field(name="Previous Split [Delta]", value=f"{rungg['lastSplitName']} [{rungg['lastSplitTime']}]", inline=True)
+                                    
+                                    embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
+                                else:
+                                    embed.add_field(name="Status", value="Run Reset", inline=True)
 
                         grabmessage = await streamchannel.send(embed=embed)
                         verify = await streamchannel.send(f"<@&{config.roles['Stream']}>")

@@ -46,3 +46,5 @@ async def main(arg):
                 except:
                     returnedjson = []
                 return returnedjson
+            else:
+                print (f"----- Server Error Occurred: {r.status}")

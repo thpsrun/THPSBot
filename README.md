@@ -17,6 +17,7 @@ THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It i
 - Fixed an issue where deleting streams from the local database would fail.
 - Fixed an issue where therun.gg lookups would fail if the player skipped a split or if none was provided.
 - Fixed an issue where the emoji used for Tony's submissions failed to find the proper index if a message had more than 1 reaction.
+- Fixed an issue where errors would be returned if therun.gg does not return a HTTP Status 200.
 - Removed some obsolete modules.
 
 ### v2.0 - The CatBag Update
