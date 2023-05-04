@@ -14,6 +14,7 @@ THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It i
 
 ### v2.0.2
 - Fixed an issue where runs awaiting for verification could break the script.
+- Changed the logic for when potential new additions are added to streamlist.db to avoid breaking submissions.
 
 ### v2.0.1
 - Fixed an issue where multiple streams would confuse the bot of which streamer was which.
