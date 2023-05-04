@@ -37,5 +37,5 @@ async def main(lookup):
                 pass
         
                 return place,points,runinfo["wrsecs"],runinfo["pbsecs"],runinfo,runtotal,verifydate
-    else:
-        return 0,0,0,0,0,0,0
+        else:
+            return 0,0,0,0,0,0,0
