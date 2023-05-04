@@ -590,6 +590,11 @@ async def start_srcom():
                         embed.set_thumbnail(url=approval[4]["gcover"])
 
                         await pbschannel.send(embed=embed)
+
+                        if approval[4]["pttv"] != 0:
+                            onlinelist = await local_streamdb.main(0,0)
+                            if approval[4]["pttv"].casefold() not in onlinelist:
+                                await local_streamdb.main(1,approval[4]["pttv"].lower())
                     else:
                         print(f"--- {runid} is an obsolete submission.")
                 else:
@@ -602,15 +607,10 @@ async def start_srcom():
                 finalid = await submissionschannel.fetch_message(messageid)
                 await finalid.delete()
 
-                time.sleep(.500)
+                time.sleep(.250)
 
                 finalid = await submissionschannel.fetch_message(verifyid)
                 await finalid.delete()
-
-                if approval[4]["pttv"] != 0:
-                    onlinelist = await local_streamdb.main(0,0)
-                    if approval[4]["pttv"].casefold() not in onlinelist:
-                        await local_streamdb.main(1,approval[4]["pttv"].lower())
 
     except Exception as exception:
         print(exception)
