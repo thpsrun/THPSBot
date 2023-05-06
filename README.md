@@ -12,6 +12,11 @@ THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It i
 
 ## Changelog
 
+### v2.0.3
+- Changed the behavior of `local_onlinedb.py` and `main.py` to add an additional check for livestream checks to ensure streams are actually offline.
+  - Originally, it would check Twitch's API every minute, but it could report an online if it wasn't.
+  - This new check will add a counter to streams; if the API says a stream is offline 5 times in a row, it will remove the embed and associated db entry.
+
 ### v2.0.2
 - Fixed an issue where runs awaiting for verification could break the script.
 - Changed the logic for when potential new additions are added to streamlist.db to avoid breaking submissions.

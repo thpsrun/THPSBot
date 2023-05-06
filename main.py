@@ -322,6 +322,7 @@ async def start_livestream():
 
                         print(f"--- {stream['user']} is online, updating embed.")
                         messageid = int(onlinelist[onlineindex][1])
+                        check     = int(onlinecheck[3])
 
                         embed=discord.Embed(
                             title=stream["title"],
@@ -349,6 +350,9 @@ async def start_livestream():
                                     embed.add_field(name="Current Split", value=rungg["currentSplit"], inline=True)
                                 else:
                                     embed.add_field(name="Status", value="Run Reset", inline=True)
+
+                        if check > 0:
+                            await local_onlinedb.main(3,(stream["user"].casefold(),0))
 
                         editid = await streamchannel.fetch_message(messageid)
                         await editid.edit(embed=embed)
@@ -384,18 +388,22 @@ async def start_livestream():
                         grabmessage = await streamchannel.send(embed=embed)
                         verify = await streamchannel.send(f"<@&{config.roles['Stream']}>")
 
-                        await local_onlinedb.main(1,(stream["user"].casefold(),grabmessage.id,verify.id))
+                        await local_onlinedb.main(1,(stream["user"].casefold(),grabmessage.id,verify.id,0))
 
             for onlinecheck in onlinelist:
                 if onlinecheck[0].casefold() not in fulltwitchlist and onlinecheck != "NA":
-                    print(f"--- {onlinecheck[0].casefold()} is now offline.")
+                    if onlinecheck[3] < 5:
+                        check = int(onlinecheck[3]) + 1
+                        await local_onlinedb.main(3,(stream["user"].casefold(),check))
+                    else:
+                        print(f"--- {onlinecheck[0].casefold()} is now offline.")
 
-                    finalid = await streamchannel.fetch_message(int(onlinecheck[1]))
-                    verifyid = await streamchannel.fetch_message(int(onlinecheck[2]))
+                        finalid = await streamchannel.fetch_message(int(onlinecheck[1]))
+                        verifyid = await streamchannel.fetch_message(int(onlinecheck[2]))
 
-                    await finalid.delete()
-                    await verifyid.delete()
-                    onlinelist = await local_onlinedb.main(2,onlinecheck[0].casefold())
+                        await finalid.delete()
+                        await verifyid.delete()
+                        onlinelist = await local_onlinedb.main(2,onlinecheck[0].casefold())
         
         print(f"[{time.strftime('%H:%M:%S', time.localtime())}] [TWITCH] Completed Twitch livestream checks...")
 
