@@ -12,6 +12,9 @@ THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It i
 
 ## Changelog
 
+### v2.0.3.1
+- Fixed an issue where `aiosqlite` would improperly handle usernames upon deleting users.
+
 ### v2.0.3
 - Changed the behavior of `local_onlinedb.py` and `main.py` to add an additional check for livestream checks to ensure streams are actually offline.
   - Originally, it would check Twitch's API every minute, but it could report an online if it wasn't.

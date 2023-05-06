@@ -1,5 +1,5 @@
 ###########################################################################################################################################################################
-# THPSBot v2.0.2
+# THPSBot v2.0.3.1
 # BY THEPACKLE (https://twitter.com/thepackle)
 ###########################################################################################################################################################################
 import os,requests,sys,discord,random,datetime,time,traceback,glob,sqlite3
@@ -393,8 +393,8 @@ async def start_livestream():
             for onlinecheck in onlinelist:
                 if onlinecheck[0].casefold() not in fulltwitchlist and onlinecheck != "NA":
                     if onlinecheck[3] < 5:
-                        check = int(onlinecheck[3]) + 1
-                        await local_onlinedb.main(3,(onlinecheck[0].casefold(),check))
+                        apicheck = int(onlinecheck[3]) + 1
+                        await local_onlinedb.main(3,(onlinecheck[0].casefold(),apicheck))
                     else:
                         print(f"--- {onlinecheck[0].casefold()} is now offline.")
 
