@@ -322,7 +322,7 @@ async def start_livestream():
 
                         print(f"--- {stream['user']} is online, updating embed.")
                         messageid = int(onlinelist[onlineindex][1])
-                        check     = int(onlinecheck[3])
+                        check     = int(onlinelist[onlineindex][3])
 
                         embed=discord.Embed(
                             title=stream["title"],
