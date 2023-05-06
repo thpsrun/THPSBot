@@ -394,7 +394,7 @@ async def start_livestream():
                 if onlinecheck[0].casefold() not in fulltwitchlist and onlinecheck != "NA":
                     if onlinecheck[3] < 5:
                         check = int(onlinecheck[3]) + 1
-                        await local_onlinedb.main(3,(stream["user"].casefold(),check))
+                        await local_onlinedb.main(3,(onlinecheck[0].casefold(),check))
                     else:
                         print(f"--- {onlinecheck[0].casefold()} is now offline.")
 
