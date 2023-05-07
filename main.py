@@ -20,7 +20,7 @@ from PIL import Image
 
 intents = discord.Intents.all()
 client  = commands.Bot(intents=intents)
-debug   = 0 # 0 = PROD; 1 = DEBUG
+debug   = 1 # 0 = PROD; 1 = DEBUG
 
 while True and debug == 0:
     current_time = time.localtime()
