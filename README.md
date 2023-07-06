@@ -12,6 +12,13 @@ THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It i
 
 ## Changelog
 
+### v2.0.5
+- Added the ability for moderators to add, remove, or query users to an "exemption" database.
+  - Runners in this database will not appear in the livestream bot channel.
+
+### v2.0.4
+- Added support for automatically sending run approvals to the new thps.run API.
+
 ### v2.0.3.1
 - Fixed an issue where `aiosqlite` would improperly handle usernames upon deleting users.
 

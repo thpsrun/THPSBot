@@ -1,14 +1,21 @@
 ###########################################################################################################################################################################
 # THPSBot v2.0.3.1
 # BY THEPACKLE (https://twitter.com/thepackle)
+# TODO:
+# - FIX DB STRUCTURE; COMBINE MAIN AND IL CATEGORIES
+# - ADD AN "EXCLUSIONS" STREAM LIST + COMMANDS
+# - ADD THE ABILITY FOR TWITCH USERS TO EXEMPT THEMSELVES VIA A TAG
+# - ADD AN ADDITIONAL WORKFLOW WHERE IT WILL SAVE THE VIDEO FILE IN A RUN -> SEND TO S3 BUCKET
+# - 
 ###########################################################################################################################################################################
 import os,requests,sys,discord,random,datetime,time,traceback,glob,sqlite3
 from commands import sidegame_add,sidegame_query,sidegame_remove
 from commands import ttv_add,ttv_query,ttv_remove
+from commands import exemptions_add,exemptions_query,exemptions_remove
 from commands import status_add,status_query,status_remove
 from functions import rungg_lookup,ttv_lookup
 from functions import src_approval,src_lookup,src_api_call
-from functions import local_streamdb,local_onlinedb,local_submissionsdb,local_sidegamesdb,local_tonysdb
+from functions import local_streamdb,local_onlinedb,local_submissionsdb,local_sidegamesdb,local_tonysdb,local_exemptionsdb
 from dbs import config
 from discord import File
 from io import BytesIO
@@ -20,7 +27,7 @@ from PIL import Image
 
 intents = discord.Intents.all()
 client  = commands.Bot(intents=intents)
-debug   = 0 # 0 = PROD; 1 = DEBUG
+debug   = config.debug
 
 while True and debug == 0:
     current_time = time.localtime()
@@ -120,7 +127,40 @@ async def stream(
         await errorchannel.send("[QUERY] Twitch stream list error")
         await ctx.send(f"An error occurred when dealing with a new stream list. {user}.")
 
-@client.slash_command(name="sidegames",description="Add or remove users from the side games listor query it!")
+@client.slash_command(name="exemptions",description="Add or remove users from the exemptions list or query it!")
+async def exemptions(
+    ctx: discord.ApplicationContext,
+    option: discord.Option(str, choices=["Add","Remove","Query"]),
+    user: discord.Option(str)
+):
+    try:
+        if option == "Add":
+            check = await exemptions_add.main(user)
+            await ttv_remove.main(user)
+            if check == 0:
+                await ctx.respond(f"{user} was added to the exemptions list.")
+            elif check == 1:
+                await ctx.respond(f"{user} was already in the exemptions list.")
+
+        elif option == "Remove":
+            check = await exemptions_remove.main(user)
+            if check == 0:
+                await ctx.respond(f"{user} was removed to the exemptions list.")
+            elif check == 1:
+                await ctx.respond(f"{user} was not found in the exemptions list")
+    
+        elif option == "Query":
+            check = await exemptions_query.main(user)
+            if check == 0:
+                await ctx.respond(f"{user} is in the exemptions list.")
+            elif check == 1:
+                await ctx.respond(f"{user} is not in the exemptions list.")
+
+    except:
+        await errorchannel.send("[QUERY] Exemptions list error")
+        await ctx.send(f"An error occurred when dealing with a new exemptions list. {user}.")
+
+@client.slash_command(name="sidegames",description="Add or remove users from the side games list or query it!")
 async def stream(
     ctx: discord.ApplicationContext,
     option: discord.Option(str, choices=["Add","Remove","Query"]),
@@ -303,10 +343,12 @@ async def start_livestream():
 
         streamlist      = await local_streamdb.main(0,0)
         onlinelist      = await local_onlinedb.main(0,0)
+        exemptionslist  = await local_exemptionsdb.main(0,0)
         #youtubelist    = await local_onlinedb.main(3,0)
         twitchlist      = await ttv_lookup.main(streamlist)
         fulltwitchlist  = [row["user"].casefold() for row in twitchlist]
         fullonlinelist  = [row[0].casefold() for row in onlinelist]
+        fullexemptlist  = [row[0].casefold() for row in exemptionslist]
 
         if isinstance(twitchlist,str):
             await errorchannel.send(twitchlist)
@@ -315,7 +357,7 @@ async def start_livestream():
                 for stream in twitchlist:
                     rungg = await rungg_lookup.main(stream["user"])
 
-                    if stream["user"].casefold() in fullonlinelist:
+                    if stream["user"].casefold() in fullonlinelist and stream["user"].casefold() not in fullexemptlist:
                         for index, data in enumerate(onlinelist):
                             if data[0].casefold() == stream["user"].casefold():
                                 onlineindex = index
@@ -492,12 +534,12 @@ async def start_srcom():
             
             print(f"--- Verifying status of {runid}")
             check = await src_api_call.main(f"https://speedrun.com/api/v1/runs/{runid}")
-            check = check["status"]["status"]
-            if isinstance(check, int):
-                print("--- AN ERROR OCCURRED!")
-                return
+            if check["status"] == 404:
+                check = "deleted"
+            else:
+                check = check["status"]["status"]
 
-            if check == "verified" or check == "rejected" or check == 0:
+            if check == "verified" or check == "rejected" or check == "deleted":
                 if check == "verified":
                     print(f"--- {runid} has been approved!")
                     approval = await src_approval.main(runid)
@@ -507,6 +549,10 @@ async def start_srcom():
                         break
                     
                     if approval[0] > 0:
+                        request_headers = {'Authorization': f"Api-Key {config.thpsrunapi}"}
+                        try: requests.post(f"https://thps.run/api/runs/{runid}/",headers=request_headers)
+                        except: await errorchannel.send(f"An error occurred posting {runid} to the thps.run API")
+
                         if approval[4]["lvlid"] != "NoILFound" and approval[4]["lvlid"] == None:
                             if approval[0] == 1: discordtitle = "NEW IL WORLD RECORD!"
                             else: discordtitle = "NEW IL PERSONAL BEST!"
@@ -605,8 +651,10 @@ async def start_srcom():
                                 await local_streamdb.main(1,approval[4]["pttv"].lower())
                     else:
                         print(f"--- {runid} is an obsolete submission.")
+                elif check == "deleted":
+                    print(f"--- {runid} has been deleted...")
                 else:
-                    print(f"--- {runid} has been rejected or deleted...")
+                    print(f"--- {runid} has been rejected...")
                 
                 await local_submissionsdb.main(2,runid)
 
@@ -657,9 +705,13 @@ async def start_side_srcom():
 
         for key in submissions:
             print(f"--- Verifying status of {key[0]}")
-            check = await src_api_call.main(f"https://speedrun.com/api/v1/runs/{key[0]}")["status"]["status"]
-            
-            if check == "verified" or check == "rejected" or check == 0:
+            check = await src_api_call.main(f"https://speedrun.com/api/v1/runs/{key[0]}")
+            if check["status"] == 404:
+                check = "deleted"
+            else:
+                check = check["status"]["status"]
+
+            if check == "verified" or check == "rejected" or check == "deleted":
                 if check == "verified":
                     print(f"--- {key[0]} has been approved!")
                     approval = await src_approval.main(key[0])
@@ -721,8 +773,10 @@ async def start_side_srcom():
                         await nonpbschannel.send(embed=embed)
                     else:
                         print(f"--- {key[0]} is an obsolete submission.")
+                elif check == "deleted":
+                    print(f"--- {key[0]} has been deleted...")
                 else:
-                    print(f"--- {key[0]} has been rejected or deleted...")
+                    print(f"--- {key[0]} has been rejected...")
 
                 await local_submissionsdb.main(5,key[0])
     except Exception as exception:
