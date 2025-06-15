@@ -56,7 +56,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           script: |
-            cd ~/thpsbot
+            cd ~/THPSBot
             git pull origin main
 
             echo "Restarting Docker containers..."
