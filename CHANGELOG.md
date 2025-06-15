@@ -2,6 +2,7 @@
 ###### June 15, 2025
 *   Fixed an issue where private polls were not saving properly and returning an error.
 *   Fixed an issue where embeds were not being provided the `embed` field from the thps.run API, returning an error.
+*   Fixed an issue where the URL to the user's profile on thps.run was not correct.
 
 ## v3.0
 ###### June 15, 2025

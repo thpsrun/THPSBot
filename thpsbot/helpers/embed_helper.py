@@ -43,7 +43,7 @@ class EmbedCreator:
             timestamp=datetime.fromisoformat(approval.replace("Z", "+00:00")),
         )
 
-        embed.set_author(name=player, url=f"{THPS_RUN}/players/{player}", icon_url=pfp)
+        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
 
         if obsolete:
             embed.add_field(name="Placement", value=f"{placement}", inline=True)
@@ -93,7 +93,7 @@ class EmbedCreator:
             timestamp=datetime.fromisoformat(submitted.replace("Z", "+00:00")),
         )
 
-        embed.set_author(name=player, url=f"{THPS_RUN}/players/{player}", icon_url=pfp)
+        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
         embed.set_footer(text=BOT)
 
         embed.description = f"{subcategory}\n Time: {time} ({run_type})"
@@ -132,7 +132,7 @@ class EmbedCreator:
             timestamp=datetime.now(timezone.utc),
         )
 
-        embed.set_author(name=player, url=f"{THPS_RUN}/players/{player}", icon_url=pfp)
+        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
         embed.add_field(name="Stats", value="", inline=False)
         embed.add_field(name="Total Points", value=total_points, inline=True)
 

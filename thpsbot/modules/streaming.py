@@ -80,7 +80,7 @@ class StreamingCog(
             self.bot._log.info("Starting Twitch.tv checks...")
 
             player_list = await AIOHTTPHelper.get(
-                url=f"{THPS_RUN_API}/players/all?query=streams",
+                url=f"{THPS_RUN_API}/player/all?query=streams",
                 headers=self.bot.thpsrun_header,
             )
 
