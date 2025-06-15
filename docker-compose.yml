@@ -1,3 +1,7 @@
+volumes:
+    logs:
+      name: thpsbot_logs
+
 services:
   thpsbot:
     container_name: THPSBot
@@ -9,7 +13,7 @@ services:
       - .env
     volumes:
       - .:/app:rw
-      - ./logs:/app/logs:rw
+      - logs:/app/logs:rw
     networks:
       - thpsbot
 
