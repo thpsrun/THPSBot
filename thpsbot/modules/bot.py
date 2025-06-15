@@ -39,11 +39,11 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
             override=True,
         )
         self.status_loop.start()
-        # self.pfp_change.start()
+        self.pfp_change.start()
 
     async def cog_unload(self) -> None:
         self.status_loop.cancel()
-        # self.pfp_change.cancel()
+        self.pfp_change.cancel()
 
     @tasks.loop(minutes=60)
     async def status_loop(self) -> None:
