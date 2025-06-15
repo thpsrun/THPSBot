@@ -524,7 +524,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         embed.title = f"{embed.title} (ENDED EARLY)"
         await message.edit(embed=embed)
 
-        self.reminder_list[message].update({"time": str(local_time)})
+        self.reminder_list[message_id].update({"time": str(local_time)})
         await self.check_reminders()
 
         await interaction.followup.send(
