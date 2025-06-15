@@ -212,7 +212,7 @@ class THPSRunCog(
         """Show or update information on a player from thps.run."""
         if action.value == "show":
             get_player = await AIOHTTPHelper.get(
-                url=f"{THPS_RUN_API}/player/{name}/pbs?embed=games",
+                url=f"{THPS_RUN_API}/players/{name}/pbs?embed=games",
                 headers=self.thpsrun_header,
             )
 
@@ -243,7 +243,7 @@ class THPSRunCog(
                 data = {"ex_stream": f"{ex_stream}"}
 
             response = await AIOHTTPHelper.put(
-                url=f"{THPS_RUN_API}/player/{name}",
+                url=f"{THPS_RUN_API}/players/{name}",
                 headers=self.thpsrun_header,
                 data=data,
             )
