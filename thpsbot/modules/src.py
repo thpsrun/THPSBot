@@ -75,7 +75,7 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                     headers=self.bot.thpsrun_header,
                     data=None,
                 )
-                self.local_src.remove(run)
+                self.local_src.remove(run["id"])
             else:
                 if run_check.data["data"]["status"]["status"] != "new":
                     await AIOHTTPHelper.post(
@@ -83,4 +83,4 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                         headers=self.bot.thpsrun_header,
                         data=None,
                     )
-                    self.local_src.remove(run)
+                    self.local_src.remove(run["id"])
