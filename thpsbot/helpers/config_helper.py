@@ -8,14 +8,15 @@ load_dotenv()
 
 ENV: str = "primary" if os.getenv("DEBUG") == "False" else "dev"
 
-ROLES_LIST: dict[str, dict] = JsonHelper.load_json("json/roles.json")
 CHANNELS_LIST: dict[str, dict] = JsonHelper.load_json("json/channels.json")
-REACTIONS_LIST: dict[str, dict] = JsonHelper.load_json("json/reactions.json")
-STATUSES_LIST: dict[str, dict] = JsonHelper.load_json("json/statuses.json")
 LIVE_LIST: dict[str, dict] = JsonHelper.load_json("json/live.json")
-TTVGAME_LIST: list = JsonHelper.load_json("json/ttvgames.json")
-TTVGAME_IDS: list = JsonHelper.load_json("json/ttvgame_ids.json")
+REACTIONS_LIST: dict[str, dict] = JsonHelper.load_json("json/reactions.json")
 REMINDER_LIST: dict[str, dict] = JsonHelper.load_json("json/reminders.json")
+ROLES_LIST: dict[str, dict] = JsonHelper.load_json("json/roles.json")
+STATUSES_LIST: dict[str, dict] = JsonHelper.load_json("json/statuses.json")
+SUBMISSIONS_LIST: list = JsonHelper.load_json("json/submissions.json")
+TTVGAME_IDS: list = JsonHelper.load_json("json/ttvgame_ids.json")
+TTVGAME_LIST: list = JsonHelper.load_json("json/ttvgames.json")
 
 GUILD_ID: int = int(CHANNELS_LIST[ENV]["server"])
 ERROR_CHANNEL: int = int(CHANNELS_LIST[ENV]["error"])

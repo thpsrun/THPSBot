@@ -119,6 +119,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
     @tasks.loop(seconds=30)
     async def check_reminders(self) -> None:
+        """Checks poll statuses every 30 seconds."""
         if len(self.reminder_list) == 0:
             return
 
@@ -239,6 +240,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         option5: str | None,
         option5_name: str | None,
     ) -> None:
+        """Creates a new public (reaction) poll with up to 5 choices"""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if time:
@@ -335,6 +337,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         option4: str | None,
         option5: str | None,
     ) -> None:
+        """Creates a new private (button) poll with up to 5 choices."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
@@ -405,6 +408,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         message_id: str,
         time: str,
     ) -> None:
+        """Changes the message's poll end time/date to what is given."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if not await is_admin_user(interaction.user, self.bot):
@@ -481,6 +485,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         interaction: Interaction,
         message_id: str,
     ) -> None:
+        """Force stops a poll early."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if not await is_admin_user(interaction.user, self.bot):

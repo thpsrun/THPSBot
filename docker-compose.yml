@@ -1,10 +1,12 @@
 volumes:
     logs:
       name: thpsbot_logs
+    json:
+      name: thpsbot_json
 
 services:
   thpsbot:
-    container_name: THPSBot
+    container_name: thpsbot
     build:
       context: .
       dockerfile: Dockerfile
@@ -14,6 +16,7 @@ services:
     volumes:
       - .:/app:rw
       - logs:/app/logs:rw
+      - json:/app/json:rw
     networks:
       - thpsbot
 

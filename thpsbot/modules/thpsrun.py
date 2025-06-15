@@ -11,6 +11,7 @@ from thpsbot.helpers.config_helper import (
     GUILD_ID,
     PB_WR_CHANNEL,
     SUBMISSION_CHANNEL,
+    SUBMISSIONS_LIST,
     THPS_RUN_API,
     THPS_RUN_KEY,
 )
@@ -36,6 +37,7 @@ class THPSRunCog(
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
         self.thpsrun_header = {"Authorization": f"Api-Key {THPS_RUN_KEY}"}
+        self.submissions: dict[dict, str] = SUBMISSIONS_LIST
 
     async def cog_load(self) -> None:
         self.submit_channel = await self.bot.fetch_channel(SUBMISSION_CHANNEL)
@@ -63,10 +65,6 @@ class THPSRunCog(
     @tasks.loop(seconds=30)
     async def check_approval_status(self):
         """Checks the status of speedruns from thps.run every 15 seconds."""
-        self.submissions: dict[str, dict] = JsonHelper.load_json(
-            "json/submissions.json"
-        )
-
         get_runs = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/runs/all?query=status"
             + "&embed=players,game,platform,record,platform",
