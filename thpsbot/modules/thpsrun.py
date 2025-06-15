@@ -309,6 +309,7 @@ class THPSRunCog(
                             description=get_run.data["description"],
                             thumbnail=get_run.data["game"]["boxart"],
                             approval=get_run.data["status"]["v_date"],
+                            obsolete=get_run.data["status"]["obsolete"],
                         )
                     )
                 else:
