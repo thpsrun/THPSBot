@@ -11,9 +11,8 @@ services:
       - .:/app:rw
       - ./logs:/app/logs:rw
     networks:
-      - srlc
+      - thpsbot
 
 networks:
-  srlc:
+  thpsbot:
     driver: bridge
-    external: true
