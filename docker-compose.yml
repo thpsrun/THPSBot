@@ -1,0 +1,19 @@
+services:
+  thpsbot:
+    container_name: THPSBot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - .:/app:rw
+      - ./logs:/app/logs:rw
+    networks:
+      - srlc
+
+networks:
+  srlc:
+    driver: bridge
+    external: true

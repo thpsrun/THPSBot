@@ -1,0 +1,22 @@
+{
+    "primary" : {
+        "admin": {
+            "admin": 0,
+            "moderator": 0,
+            "stream": 0
+        },
+        "mods": {
+            "message": 0
+        }
+    },
+    "dev" : {
+        "admin": {
+            "admin": 0,
+            "moderator": 0,
+            "stream": 0
+        },
+        "mods": {
+            "message": 0
+        }
+    }
+}
