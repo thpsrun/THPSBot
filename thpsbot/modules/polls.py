@@ -528,6 +528,6 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         await self.check_reminders()
 
         await interaction.followup.send(
-            f"{message}'s poll was stopped. DM should be sent to author shortly.",
+            f"{message_id}'s poll was stopped. DM should be sent to author shortly.",
             ephemeral=True,
         )
