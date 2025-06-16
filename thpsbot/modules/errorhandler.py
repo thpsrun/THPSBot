@@ -68,6 +68,8 @@ class ErrorHandler(Cog, name="ErrorHandler", description="Manages THPSBot's erro
             self.bot._log.error("EXTENSION_ERROR", exc_info=error)
         elif isinstance(error, ValueError):
             self.bot._log.error("VALUE_ERROR", exc_info=error)
+        elif isinstance(error, AttributeError):
+            self.bot._log.error("ATTR_ERROR", exc_info=error)
         else:
             if interaction.response.is_done():
                 await interaction.followup.send(
