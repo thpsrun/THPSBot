@@ -53,6 +53,7 @@ class THPSBot(commands.Bot):
             sentry_sdk.init(
                 dsn=SENTRY_SDN,
                 send_default_pii=True,
+                traces_sample_rate=1.0,
             )
         else:
             self._log.info("Currently in dev mode; skipping Sentry...")
