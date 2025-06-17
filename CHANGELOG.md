@@ -1,3 +1,9 @@
+## v3.0.2
+###### June 16, 2025
+*   Added additional Sentry.io logging, especially for handled errors.
+*   Added error handling for `ValueError` and `AttributeError`.
+*   Updated bot's Docker image to 3.13.5-bookworm.
+
 ## v3.0.1
 ###### June 15, 2025
 *   Fixed an issue where private polls were not saving properly and returning an error.

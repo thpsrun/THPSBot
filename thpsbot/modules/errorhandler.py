@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 import discord
+import sentry_sdk
 from discord import Interaction, app_commands
 from discord.ext.commands import Cog, ExtensionError
 
@@ -64,12 +65,16 @@ class ErrorHandler(Cog, name="ErrorHandler", description="Manages THPSBot's erro
             )
 
             self.bot._log.exception("CLIENT_EXCEPTION", exc_info=error)
+            sentry_sdk.capture_exception(error)
         elif isinstance(error, ExtensionError):
             self.bot._log.error("EXTENSION_ERROR", exc_info=error)
+            sentry_sdk.capture_exception(error)
         elif isinstance(error, ValueError):
             self.bot._log.error("VALUE_ERROR", exc_info=error)
+            sentry_sdk.capture_exception(error)
         elif isinstance(error, AttributeError):
             self.bot._log.error("ATTR_ERROR", exc_info=error)
+            sentry_sdk.capture_exception(error)
         else:
             if interaction.response.is_done():
                 await interaction.followup.send(
