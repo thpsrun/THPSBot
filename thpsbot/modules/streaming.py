@@ -77,8 +77,6 @@ class StreamingCog(
     async def stream_loop(self) -> None:
         """Checks livestream status of players every minute."""
         async with self.task_lock:
-            self.bot._log.info("Starting Twitch.tv checks...")
-
             player_list = await AIOHTTPHelper.get(
                 url=f"{THPS_RUN_API}/players/all?query=streams",
                 headers=self.bot.thpsrun_header,

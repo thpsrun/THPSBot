@@ -31,8 +31,6 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
 
     @tasks.loop(minutes=1)
     async def src_check(self) -> None:
-        self.bot._log.info("Starting Speedrun.com checks...")
-
         game_list = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/games/all",
             headers=self.bot.thpsrun_header,
@@ -44,7 +42,7 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                 headers=self.bot.thpsrun_header,
             )
 
-            if not src_check.data["data"]:
+            if not src_check.data["data"] or src_check.ok:
                 continue
 
             run_ids = [run["id"] for run in src_check.data["data"]]

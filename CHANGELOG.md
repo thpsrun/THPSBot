@@ -1,3 +1,7 @@
+## v3.0.3
+###### June 18, 2025
+*   Added an additional check to `src.py` to prevent `503: Service Unavailable` requests.
+
 ## v3.0.2
 ###### June 16, 2025
 *   Added additional Sentry.io logging, especially for handled errors.
