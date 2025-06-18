@@ -42,7 +42,7 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                 headers=self.bot.thpsrun_header,
             )
 
-            if not src_check.data["data"] or src_check.ok:
+            if not src_check.data["data"] or not src_check.ok:
                 continue
 
             run_ids = [run["id"] for run in src_check.data["data"]]
@@ -60,6 +60,9 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
             + "&embed=players,game,platform,record,platform",
             headers=self.bot.thpsrun_header,
         )
+
+        if not src_check.ok:
+            return
 
         for run in runs_list.data["new_runs"]:
             run_check = await AIOHTTPHelper.get(
