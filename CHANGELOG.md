@@ -1,3 +1,7 @@
+## v3.0.3.1
+###### June 18, 2025
+*   Fixed an issue where `src.py` would return an error if the returned status message was not a 404 and not returning data.
+
 ## v3.0.3
 ###### June 18, 2025
 *   Added an additional check to `src.py` to prevent `503: Service Unavailable` requests.
