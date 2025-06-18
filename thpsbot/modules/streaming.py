@@ -82,7 +82,7 @@ class StreamingCog(
                 headers=self.bot.thpsrun_header,
             )
 
-            if not player_list.data:
+            if not player_list.data or not player_list.ok:
                 self.bot._log.error("No player data received; is thps.run online?")
                 return
 

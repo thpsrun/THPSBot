@@ -1,3 +1,7 @@
+## v3.0.3.2
+###### June 18, 2025
+*   Added an additional check to `streaming.py` to prevent issues where the thps.run API is down and causing a crash.
+
 ## v3.0.3.1
 ###### June 18, 2025
 *   Fixed an issue where `src.py` would return an error if the returned status message was not a 404 and not returning data.
