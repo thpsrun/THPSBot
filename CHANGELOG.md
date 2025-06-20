@@ -1,7 +1,11 @@
+## v3.0.3.3
+###### June 20, 2025
+*   Fixed an issue where the additional check for `src.py` checking if SRC was down would not work properly.
+
 ## v3.0.3.2
 ###### June 18, 2025
 *   Added an additional check to `streaming.py` to prevent issues where the thps.run API is down and causing a crash.
-*   Added an additional check to `src.py` to prevnet issues where the thps.run API is down and causing a crash.
+*   Added an additional check to `src.py` to prevent issues where the thps.run API is down and causing a crash.
 
 ## v3.0.3.1
 ###### June 18, 2025
