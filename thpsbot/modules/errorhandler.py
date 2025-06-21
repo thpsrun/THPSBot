@@ -20,7 +20,11 @@ async def teardown(bot: "THPSBot"):
     await bot.remove_cog(name="ErrorHandler")
 
 
-class ErrorHandler(Cog, name="ErrorHandler", description="Manages THPSBot's errors"):
+class ErrorHandler(
+    Cog,
+    name="ErrorHandler",
+    description="Manages THPSBot's errors",
+):
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
 
@@ -29,7 +33,8 @@ class ErrorHandler(Cog, name="ErrorHandler", description="Manages THPSBot's erro
     ) -> None:
         if isinstance(error, app_commands.CheckFailure):
             await interaction.response.send_message(
-                "You do not have the permissions to run this command.", ephemeral=True
+                "You do not have the permissions to run this command.",
+                ephemeral=True,
             )
         elif isinstance(error, app_commands.errors.CommandInvokeError):
             await interaction.response.send_message(
@@ -49,13 +54,15 @@ class ErrorHandler(Cog, name="ErrorHandler", description="Manages THPSBot's erro
             self.bot._log.error("FORBIDDEN", exc_info=error)
         elif isinstance(error, discord.NotFound):
             await interaction.response.send_message(
-                "An error occurred. That content was not found.", ephemeral=True
+                "An error occurred. That content was not found.",
+                ephemeral=True,
             )
 
             self.bot._log.error("NOTFOUND", exc_info=error)
         elif isinstance(error, discord.HTTPException):
             await interaction.response.send_message(
-                "An error occurred with Discord's API. Try again?", ephemeral=True
+                "An error occurred with Discord's API. Try again?",
+                ephemeral=True,
             )
 
             self.bot._log.exception("HTTP_EXCEPTION", exc_info=error)
@@ -78,11 +85,13 @@ class ErrorHandler(Cog, name="ErrorHandler", description="Manages THPSBot's erro
         else:
             if interaction.response.is_done():
                 await interaction.followup.send(
-                    "An unexpected error occurred. Check logs.", ephemeral=True
+                    "An unexpected error occurred. Check logs.",
+                    ephemeral=True,
                 )
             else:
                 await interaction.response.send_message(
-                    "An unexpected error occurred. Check logs.", ephemeral=True
+                    "An unexpected error occurred. Check logs.",
+                    ephemeral=True,
                 )
 
             self.bot._log.error("UNKNOWN", exc_info=error)

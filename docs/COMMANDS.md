@@ -60,11 +60,12 @@ This group of commands sets the games that the bot will look up from the Twitch 
 ---
 ### THPS.RUN GROUP:
 This group of commands is used to interact with the thps.run API.
-`/thpsrun player <action> <name> <ex_stream>`
+`/thpsrun player <action> <name> <nickname> <ex_stream>`
 - Action:
     - Show is used to create an embed with thps.run information about a player. (ALL USERS)
     - Update is used to force sync a player's information on thps.run with Speedrun.com. (ADMIN)
 - Name: The exact speedrun.com name of the player to be synced or updated.
+- Nickname: Optional. Whatever is inputted will be the player's nickname on the site.
 - Ex_stream: Optional. If True, the player is exempted from appearing in the livestream channel.
 
 `/thpsrun run <action> <url>`

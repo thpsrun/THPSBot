@@ -66,10 +66,14 @@ class THPSBot(commands.Bot):
         """Loads modules after loading the bot."""
         self._log.info("setup_hook initialized...")
 
-        self.tree.clear_commands(guild=discord.Object(id=GUILD_ID))
-
         self.base = BaseCommands(self)
         self.errorchannel = await self.fetch_channel(ERROR_CHANNEL)
+
+        self.tree.clear_commands(guild=discord.Object(id=GUILD_ID))
+        self.tree.clear_commands(guild=None)
+        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
+        await self.tree.sync(guild=None)
+
         await self.add_cog(self.base)
 
         modules_dir = os.path.join(os.path.dirname(__file__), "modules")

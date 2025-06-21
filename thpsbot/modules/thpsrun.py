@@ -194,6 +194,7 @@ class THPSRunCog(
     @app_commands.describe(
         action="Show information about a player. Admins can use update to force updates.",
         name="The name (or unique ID) of the player you want to show.",
+        nickname="When declared, the player will be given the specified nickname.",
         ex_stream="Used with update for admins; when True, the user is exempted from Twitch checks",
     )
     @app_commands.choices(
@@ -207,6 +208,7 @@ class THPSRunCog(
         interaction: Interaction,
         action: app_commands.Choice[str],
         name: str,
+        nickname: str | None,
         ex_stream: bool | None,
     ):
         """Show or update information on a player from thps.run."""
@@ -232,15 +234,26 @@ class THPSRunCog(
                 )
             else:
                 await interaction.response.send_message(
-                    content="An error occurred looking up that player.", ephemeral=True
+                    content="An error occurred looking up that player.",
+                    ephemeral=True,
                 )
         else:
             if not await is_admin_user(interaction.user, self.bot):
                 raise app_commands.CheckFailure
 
-            data = None
+            data = {}
+            if nickname is not None:
+                if len(nickname) > 30:
+                    await interaction.response.send_message(
+                        content="The nickname given is greater than 30 characters.",
+                        ephemeral=True,
+                    )
+                    return
+
+                data.update({"nickname": f"{nickname}"})
+
             if ex_stream is not None:
-                data = {"ex_stream": f"{ex_stream}"}
+                data.update({"ex_stream": f"{ex_stream}"})
 
             response = await AIOHTTPHelper.put(
                 url=f"{THPS_RUN_API}/players/{name}",
@@ -250,11 +263,13 @@ class THPSRunCog(
 
             if response.ok:
                 await interaction.response.send_message(
-                    content=f"{name} was successfully updated!", ephemeral=True
+                    content=f"{name} was successfully updated!",
+                    ephemeral=True,
                 )
             else:
                 await interaction.response.send_message(
-                    content="An unknown error occurred.", ephemeral=True
+                    content="An unknown error occurred.",
+                    ephemeral=True,
                 )
                 self.bot._log.exception(
                     f"update_player: {response.status} {response.data}"
@@ -314,11 +329,13 @@ class THPSRunCog(
                     )
                 else:
                     await interaction.response.send_message(
-                        content="Run is still awaiting verification.", ephemeral=True
+                        content="Run is still awaiting verification.",
+                        ephemeral=True,
                     )
             else:
                 await interaction.response.send_message(
-                    content=f"An error occurred looking up {url}.", ephemeral=True
+                    content=f"An error occurred looking up {url}.",
+                    ephemeral=True,
                 )
         else:
             if not await is_admin_user(interaction.user, self.bot):
@@ -330,7 +347,9 @@ class THPSRunCog(
                 url = THPSRunHelper.get_run_id(url.lower())
 
             post_run = await AIOHTTPHelper.post(
-                url=f"{THPS_RUN_API}/runs/{url}", headers=self.thpsrun_header
+                url=f"{THPS_RUN_API}/runs/{url}",
+                headers=self.thpsrun_header,
+                data=None,
             )
 
             if post_run.ok:

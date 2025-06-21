@@ -27,7 +27,11 @@ async def teardown(bot: "THPSBot"):
     await bot.remove_cog(name="GameActivites")
 
 
-class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's statuses"):
+class ActivityCog(
+    Cog,
+    name="GameActivities",
+    description="Manages THPSBot's statuses",
+):
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
         self.gameslist: list = STATUSES_LIST
@@ -78,11 +82,13 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
     # main_cmd_group Commands
     ###########################################################################
     main_cmd_group = app_commands.Group(
-        name="bot", description="Commands related to THPSBot's functionality."
+        name="bot",
+        description="Commands related to THPSBot's functionality.",
     )
 
     @main_cmd_group.command(
-        name="ping", description="See if the bot is offline and responding properly!"
+        name="ping",
+        description="See if the bot is offline and responding properly!",
     )
     async def ping(self, interaction: Interaction) -> None:
         """See if the bot is offline and responding properly!"""
@@ -93,7 +99,8 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
         )
 
     @main_cmd_group.command(
-        name="reload", description="Reload all modules loaded into THPSBot!"
+        name="reload",
+        description="Reload all modules loaded into THPSBot!",
     )
     async def reload(self, interaction: Interaction) -> None:
         """Reload all modules loaded into THPSBot!"""
@@ -109,7 +116,10 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
                 self.bot._log.error(f"Failed to load {extension}; ignoring")
                 failed.append(extension)
         if not failed:
-            await interaction.followup.send("Modules reloaded!", ephemeral=True)
+            await interaction.followup.send(
+                "Modules reloaded!",
+                ephemeral=True,
+            )
         else:
             await interaction.followup.send(
                 f"{', '.join(failed)} failed to reload. See log for errors.",
@@ -162,14 +172,22 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
                 return m.author == interaction.user and m.channel == interaction.channel
 
             try:
-                msg = await self.bot.wait_for("message", check=check, timeout=10)
+                msg = await self.bot.wait_for(
+                    "message",
+                    check=check,
+                    timeout=10,
+                )
                 if msg.content.lower() != "yes":
-                    await interaction.followup.send("Cancelled.", ephemeral=True)
+                    await interaction.followup.send(
+                        "Cancelled.",
+                        ephemeral=True,
+                    )
 
                 await msg.delete()
             except Exception:
                 await interaction.followup.send(
-                    "No confirmation received. Cancelled.", ephemeral=True
+                    "No confirmation received. Cancelled.",
+                    ephemeral=True,
                 )
                 return
 
@@ -177,7 +195,8 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
                 await self.bot.change_presence(activity=Game(name=status))
 
                 await interaction.followup.send(
-                    f"Status updated to: `{status}`", ephemeral=True
+                    f"Status updated to: `{status}`",
+                    ephemeral=True,
                 )
 
             if status not in self.gameslist:
@@ -189,19 +208,22 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
                 JsonHelper.save_json(self.gameslist, "json/statuses.json")
 
                 await interaction.response.send_message(
-                    f"{status} has been removed successfully.", ephemeral=True
+                    f"{status} has been removed successfully.",
+                    ephemeral=True,
                 )
                 return
 
             await interaction.response.send_message(
-                f"{status} is not in the statuses table.", ephemeral=True
+                f"{status} is not in the statuses table.",
+                ephemeral=True,
             )
         else:
             game = Game(random.choice(self.gameslist))
 
             await self.bot.change_presence(activity=game)
             await interaction.response.send_message(
-                f"New random status set: `{game.name}`", ephemeral=True
+                f"New random status set: `{game.name}`",
+                ephemeral=True,
             )
 
     ###########################################################################
@@ -230,12 +252,16 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
         pfp: str | None,
     ) -> None:
         """Adds or force change profile pictures for THPSBot."""
-        await interaction.response.defer(thinking=True, ephemeral=True)
+        await interaction.response.defer(
+            thinking=True,
+            ephemeral=True,
+        )
 
         if action.value == "add":
             if not image_url:
                 await interaction.followup.send(
-                    "`image_url` is required for adding.", ephemeral=True
+                    "`image_url` is required for adding.",
+                    ephemeral=True,
                 )
                 return
 
@@ -249,6 +275,10 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
                 )
 
                 if not response.ok:
+                    await interaction.followup.send(
+                        "Image could not be downloaded.",
+                        ephemeral=True,
+                    )
                     return
 
                 image = Image.open(BytesIO(response.data))
@@ -266,7 +296,11 @@ class ActivityCog(Cog, name="GameActivities", description="Manages THPSBot's sta
                     )
 
                 try:
-                    msg = await self.bot.wait_for("message", check=check, timeout=10)
+                    msg = await self.bot.wait_for(
+                        "message",
+                        check=check,
+                        timeout=10,
+                    )
                     new_filename = msg.content
                     await msg.delete()
 
