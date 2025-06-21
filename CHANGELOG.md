@@ -1,3 +1,10 @@
+## v3.1.0
+###### June 20, 2025
+*   Added the `nickname` option to the `/thpsrun players` command.
+    *   When successful, that player will be given the specified nickname.
+
+*   Fixed an issue where commands were not properly syncing wiht the Discord API.
+
 ## v3.0.3.3
 ###### June 20, 2025
 *   Fixed an issue where the additional check for `src.py` checking if SRC was down would not work properly.
