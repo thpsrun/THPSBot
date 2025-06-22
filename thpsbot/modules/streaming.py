@@ -199,7 +199,7 @@ class StreamingCog(
                             stream_name=stream,
                             stream_game=self.live[stream]["game"],
                             twitch_pfp=self.live[stream]["pfp"],
-                            archive_video=archive.url,
+                            archive_video=archive.url if archive else None,
                         )
                     )
 

@@ -1,9 +1,17 @@
 ## v3.1.0
+###### June 22, 2025
+*   Fixed an issue where Twitch offline embedding would crash if the user did not have video archives enabled.
+
+* * *
+
+## v3.1.0
 ###### June 20, 2025
 *   Added the `nickname` option to the `/thpsrun players` command.
     *   When successful, that player will be given the specified nickname.
 
 *   Fixed an issue where commands were not properly syncing wiht the Discord API.
+
+* * *
 
 ## v3.0.3.3
 ###### June 20, 2025
@@ -14,13 +22,19 @@
 *   Added an additional check to `streaming.py` to prevent issues where the thps.run API is down and causing a crash.
 *   Added an additional check to `src.py` to prevent issues where the thps.run API is down and causing a crash.
 
+* * *
+
 ## v3.0.3.1
 ###### June 18, 2025
 *   Fixed an issue where `src.py` would return an error if the returned status message was not a 404 and not returning data.
 
+* * *
+
 ## v3.0.3
 ###### June 18, 2025
 *   Added an additional check to `src.py` to prevent `503: Service Unavailable` requests.
+
+* * *
 
 ## v3.0.2
 ###### June 16, 2025
@@ -28,12 +42,16 @@
 *   Added error handling for `ValueError` and `AttributeError`.
 *   Updated bot's Docker image to 3.13.5-bookworm.
 
+* * *
+
 ## v3.0.1
 ###### June 15, 2025
 *   Fixed an issue where private polls were not saving properly and returning an error.
 *   Fixed an issue where embeds were not being provided the `embed` field from the thps.run API, returning an error.
 *   Fixed an issue where the URL to the user's profile on thps.run was not correct.
 *   Fixed issue of renaming API URLs resulting in an error.
+
+* * *
 
 ## v3.0
 ###### June 15, 2025
@@ -70,6 +88,8 @@
 *   Removed "side-game" support.
     *   This wasn't used very often and was turned off a long while ago without anyone noticing.
     *   If people want this again, I can make it happen later.
+
+* * *
 
 ## Older Versions (v2)
 
