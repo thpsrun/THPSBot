@@ -36,6 +36,9 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
             headers=self.bot.thpsrun_header,
         )
 
+        if not game_list.ok:
+            return
+
         for game in game_list.data:
             src_check = await AIOHTTPHelper.get(
                 url=f"https://speedrun.com/api/v1/runs?status=new&game={game['id']}",

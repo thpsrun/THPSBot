@@ -1,3 +1,9 @@
+## v3.1.0.1
+###### June 28, 2025
+*   Fixed an issue where, if thps.run's API returned a non-2XX HTTP response, it would result in an error when looking up games.
+
+* * *
+
 ## v3.1.0
 ###### June 22, 2025
 *   Fixed an issue where Twitch offline embedding would crash if the user did not have video archives enabled.
