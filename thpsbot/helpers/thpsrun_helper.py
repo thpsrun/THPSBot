@@ -63,16 +63,19 @@ class THPSRunHelper:
         time_key, run_type = time_key_map.get(default_time)
         run_time = THPSRunHelper.format_time(data["times"][time_key])
 
-        if data["id"] != data["record"]["id"]:
-            record_time = data["record"]["times"][time_key]
-            pb_time = data["times"][time_key]
+        if data["record"]:
+            if data["id"] != data["record"]["id"]:
+                record_time = data["record"]["times"][time_key]
+                pb_time = data["times"][time_key]
 
-            record_time_str = THPSRunHelper.format_time(record_time)
-            difference = THPSRunHelper.format_time(round(pb_time - record_time, 3))
+                record_time_str = THPSRunHelper.format_time(record_time)
+                difference = THPSRunHelper.format_time(round(pb_time - record_time, 3))
 
-            delta = f"{record_time_str} [+{difference}]"
+                delta = f"{record_time_str} [+{difference}]"
+            else:
+                delta = None
         else:
-            delta = None
+            delta = "No Previous WR"
 
         return THPSRunHelperResponse(
             embed_title=embed_title,
