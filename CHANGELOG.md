@@ -1,3 +1,9 @@
+## v3.1.0.2
+###### June 30, 2025
+*   Fixed an issue where, if thps.run's API returnss `None` for the world record, it would return an error and crash.
+
+* * *
+
 ## v3.1.0.1
 ###### June 28, 2025
 *   Fixed an issue where, if thps.run's API returned a non-2XX HTTP response, it would result in an error when looking up games.
