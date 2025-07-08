@@ -120,14 +120,17 @@ class StreamingCog(
                                         thumbnail + "?rand=" + str(int(time.time()))
                                     )
 
+                                    embed, view = EmbedCreator.twitch_embed(
+                                        title=stream.title,
+                                        stream_name=user.display_name,
+                                        stream_game=stream.game_name,
+                                        twitch_pfp=user.profile_image_url,
+                                        thumbnail=e_thumbnail,
+                                        src_username=entry.get("name"),
+                                    )
+
                                     embed_stream = await self.stream_channel.send(
-                                        embed=EmbedCreator.twitch_embed(
-                                            title=stream.title,
-                                            stream_name=user.display_name,
-                                            stream_game=stream.game_name,
-                                            twitch_pfp=user.profile_image_url,
-                                            thumbnail=e_thumbnail,
-                                        )
+                                        embed=embed, view=view
                                     )
                                     role_msg = await self.stream_channel.send(
                                         f"<@&{self.stream_role}>"
@@ -137,6 +140,7 @@ class StreamingCog(
                                         {
                                             f"{user.display_name}": {
                                                 "user_id": user.id,
+                                                "src_username": entry.get("name"),
                                                 "embed": embed_stream.id,
                                                 "role": role_msg.id,
                                                 "game": stream.game_name,
@@ -163,12 +167,13 @@ class StreamingCog(
                         messages["thumbnail"] + "?rand=" + str(int(time.time()))
                     )
 
-                    embed = EmbedCreator.twitch_embed(
+                    embed, view = EmbedCreator.twitch_embed(
                         title=stream.title,
                         stream_name=user,
                         stream_game=stream.game_name,
                         twitch_pfp=messages["pfp"],
                         thumbnail=e_thumbnail,
+                        src_username=messages["src_username"],
                     )
 
                     try:
@@ -176,7 +181,7 @@ class StreamingCog(
                             messages["embed"]
                         )
 
-                        await embed_stream.edit(embed=embed)
+                        await embed_stream.edit(embed=embed, view=view)
                     except discord.errors.NotFound:
                         new_embed = await self.stream_channel.send(embed=embed)
                         self.live[user].update({"embed": new_embed.id})
