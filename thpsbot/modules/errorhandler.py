@@ -82,6 +82,8 @@ class ErrorHandler(
         elif isinstance(error, AttributeError):
             self.bot._log.error("ATTR_ERROR", exc_info=error)
             sentry_sdk.capture_exception(error)
+        elif isinstance(error, discord.DiscordServerError):
+            self.bot._log.error("SERVER_ERROR", exc_info=error)
         else:
             if interaction.response.is_done():
                 await interaction.followup.send(
