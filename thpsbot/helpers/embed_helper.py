@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timezone
 
+import discord
 from discord import Embed
 from dotenv import load_dotenv
 
@@ -202,6 +203,7 @@ class EmbedCreator:
         stream_game: str,
         twitch_pfp: str | None,
         thumbnail: str,
+        src_username: str,
     ) -> Embed:
         """This embed is used to display currently online livestreams."""
         if not twitch_pfp:
@@ -210,7 +212,6 @@ class EmbedCreator:
         embed = Embed(
             title=title,
             url=f"https://twitch.tv/{stream_name}",
-            description=f"[Click here to watch live!](https://twitch.tv/{stream_name})",
             color=random.randint(0, 0xFFFFFF),
             timestamp=datetime.now(timezone.utc),
         )
@@ -224,7 +225,32 @@ class EmbedCreator:
         embed.set_image(url=thumbnail)
         embed.set_footer(text=BOT)
 
-        return embed
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(
+                label="Twitch",
+                url=f"https://twitch.tv/{stream_name}",
+                emoji=discord.PartialEmoji(name="twitch", id=1391866611358629908),
+            )
+        )
+
+        view.add_item(
+            discord.ui.Button(
+                label="Speedrun.com",
+                url=f"https://speedrun.com/{src_username}",
+                emoji=discord.PartialEmoji(name="src", id=1391867987157319882),
+            )
+        )
+
+        view.add_item(
+            discord.ui.Button(
+                label="thps.run",
+                url=f"https://thps.run/player/{src_username}",
+                emoji=discord.PartialEmoji(name="thpsrun", id=1391866542500872382),
+            )
+        )
+
+        return embed, view
 
     @staticmethod
     def twitch_offline_embed(

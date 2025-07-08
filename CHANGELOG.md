@@ -1,16 +1,23 @@
-## v3.1.0.2
-###### June 30, 2025
-*   Fixed an issue where, if thps.run's API returnss `None` for the world record, it would return an error and crash.
+## v3.2
+###### July 7, 2025
+*   Added buttons to stream embeds that will take you to the player's Twitch stream, Speedrun.com profile, or thps.run profile.
+*   Changed Twitch embeds to compensate for new changes above.
 
 * * *
 
-## v3.1.0.1
+## v3.1.0.3
+###### June 30, 2025
+*   Fixed an issue where, if thps.run's API returns `None` for the world record, it would return an error and crash.
+
+* * *
+
+## v3.1.0.2
 ###### June 28, 2025
 *   Fixed an issue where, if thps.run's API returned a non-2XX HTTP response, it would result in an error when looking up games.
 
 * * *
 
-## v3.1.0
+## v3.1.0.1
 ###### June 22, 2025
 *   Fixed an issue where Twitch offline embedding would crash if the user did not have video archives enabled.
 
