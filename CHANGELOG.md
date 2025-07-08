@@ -1,3 +1,8 @@
+## v3.2.1
+###### July 8, 2025
+*   Added error handling if Discord returns a 5XX HTTP code.
+    *   This also covers the semi-rare `503 Service Unavailable` messages that Discord spits out every now and again.
+
 ## v3.2
 ###### July 7, 2025
 *   Added buttons to stream embeds that will take you to the player's Twitch stream, Speedrun.com profile, or thps.run profile.
