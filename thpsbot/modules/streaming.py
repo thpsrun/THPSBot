@@ -122,6 +122,7 @@ class StreamingCog(
 
                                     embed, view = EmbedCreator.twitch_embed(
                                         title=stream.title,
+                                        thps_user=entry.get("id"),
                                         stream_name=user.display_name,
                                         stream_game=stream.game_name,
                                         twitch_pfp=user.profile_image_url,
@@ -140,12 +141,16 @@ class StreamingCog(
                                         {
                                             f"{user.display_name}": {
                                                 "user_id": user.id,
+                                                "thpsrun_id": entry.get(
+                                                    "id"
+                                                ),  # temporary until local done
                                                 "src_username": entry.get("name"),
                                                 "embed": embed_stream.id,
                                                 "role": role_msg.id,
                                                 "game": stream.game_name,
                                                 "thumbnail": thumbnail,
                                                 "pfp": user.profile_image_url,
+                                                "started_at": str(stream.started_at),
                                                 "check": 0,
                                             }
                                         }
@@ -156,7 +161,7 @@ class StreamingCog(
 
                 stream = await first(self.ttv_client.get_streams(user_login=user))
 
-                if stream is None:
+                if stream is None or stream.game_id not in self.stream_game_lookup:
                     if messages["check"] >= 5:
                         remove_stream.append(user)
                     else:
@@ -169,6 +174,7 @@ class StreamingCog(
 
                     embed, view = EmbedCreator.twitch_embed(
                         title=stream.title,
+                        thps_user=messages["thpsrun_id"],
                         stream_name=user,
                         stream_game=stream.game_name,
                         twitch_pfp=messages["pfp"],
@@ -204,6 +210,7 @@ class StreamingCog(
                             stream_name=stream,
                             stream_game=self.live[stream]["game"],
                             twitch_pfp=self.live[stream]["pfp"],
+                            started_at=self.live[stream]["started_at"],
                             archive_video=archive.url if archive else None,
                         )
                     )

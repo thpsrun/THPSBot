@@ -199,6 +199,7 @@ class EmbedCreator:
     @staticmethod
     def twitch_embed(
         title: str,
+        thps_user: str,
         stream_name: str,
         stream_game: str,
         twitch_pfp: str | None,
@@ -234,21 +235,22 @@ class EmbedCreator:
             )
         )
 
-        view.add_item(
-            discord.ui.Button(
-                label="Speedrun.com",
-                url=f"https://speedrun.com/{src_username}",
-                emoji=discord.PartialEmoji(name="src", id=1391867987157319882),
+        if "-mar" not in thps_user:
+            view.add_item(
+                discord.ui.Button(
+                    label="Speedrun.com",
+                    url=f"https://speedrun.com/{src_username}",
+                    emoji=discord.PartialEmoji(name="src", id=1391867987157319882),
+                )
             )
-        )
 
-        view.add_item(
-            discord.ui.Button(
-                label="thps.run",
-                url=f"https://thps.run/player/{src_username}",
-                emoji=discord.PartialEmoji(name="thpsrun", id=1391866542500872382),
+            view.add_item(
+                discord.ui.Button(
+                    label="thps.run",
+                    url=f"https://thps.run/player/{src_username}",
+                    emoji=discord.PartialEmoji(name="thpsrun", id=1391866542500872382),
+                )
             )
-        )
 
         return embed, view
 
@@ -257,11 +259,18 @@ class EmbedCreator:
         stream_name: str,
         stream_game: str,
         twitch_pfp: str | None,
+        started_at: str,
         archive_video: str | None,
     ) -> Embed:
         """This embed is used to display currently online livestreams."""
         if not twitch_pfp:
             twitch_pfp = DEFAULT_IMG
+
+        secs_uptime = (
+            datetime.now(timezone.utc) - datetime.fromisoformat(started_at)
+        ).total_seconds()
+        hours = int(secs_uptime // 3600)
+        minutes = int((secs_uptime % 3600) // 60)
 
         embed = Embed(
             title=f"{stream_name} is offline!",
@@ -276,6 +285,14 @@ class EmbedCreator:
             icon_url=twitch_pfp,
         )
         embed.add_field(name="Game", value=stream_game, inline=True)
+
+        if hours > 0:
+            embed.add_field(
+                name="Stream Time",
+                value=f"{abs(hours)} hours and {abs(minutes)} minutes",
+            )
+        else:
+            embed.add_field(name="Stream Time", value=f"{abs(minutes)} minutes")
 
         if archive_video:
             embed.description = f"Stream VOD: {archive_video}"
