@@ -1,3 +1,9 @@
+## v3.3
+###### July 11, 2025
+*   Added an additional field to Twitch Offline embeds that display the length of the stream.
+*   Added a check to see if a stream is a marathon stream, thus getting less embedded buttons.
+*   Added a check to streams that verify if it is streaming an approved game. If the `game_id` of the streamed game is not in the approved list, the offline countdown will begin.
+
 ## v3.2.1
 ###### July 8, 2025
 *   Added error handling if Discord returns a 5XX HTTP code.
