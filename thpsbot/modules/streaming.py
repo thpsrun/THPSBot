@@ -18,6 +18,7 @@ from thpsbot.helpers.config_helper import (
     STREAM_OFF_THREAD,
     THPS_RUN_API,
     TTV_ID,
+    TTV_TIMEOUT,
     TTV_TOKEN,
     TTVGAME_IDS,
     TTVGAME_LIST,
@@ -141,9 +142,7 @@ class StreamingCog(
                                         {
                                             f"{user.display_name}": {
                                                 "user_id": user.id,
-                                                "thpsrun_id": entry.get(
-                                                    "id"
-                                                ),  # temporary until local done
+                                                "thpsrun_id": entry.get("id"),
                                                 "src_username": entry.get("name"),
                                                 "embed": embed_stream.id,
                                                 "role": role_msg.id,
@@ -162,7 +161,7 @@ class StreamingCog(
                 stream = await first(self.ttv_client.get_streams(user_login=user))
 
                 if stream is None or stream.game_id not in self.stream_game_lookup:
-                    if messages["check"] >= 5:
+                    if messages["check"] >= TTV_TIMEOUT:
                         remove_stream.append(user)
                     else:
                         check = messages["check"] + 1

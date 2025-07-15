@@ -1,3 +1,8 @@
+## v3.3.1
+###### July 11, 2025
+*   Added a configuration `.env` setting to determine when a Twitch embed would be "timed-out" and become offline/removed.
+    *   Before, it was a hard-set 5 minutes. This is still the default, but now it is easily configurable instead of being hard-coded.
+
 ## v3.3
 ###### July 11, 2025
 *   Added an additional field to Twitch Offline embeds that display the length of the stream.
