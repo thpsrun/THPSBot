@@ -36,6 +36,8 @@ TTV_ID: str = os.getenv("TWITCH_ID")
 DEFAULT_IMG: str = os.getenv("DEFAULT_IMG")
 BOT: str = os.getenv("BOT_NAME")
 
+TTV_TIMEOUT: int = int(os.getenv("TTV_TIMEOUT"))
+
 DISCORD_KEY: str = (
     os.getenv("DISCORD_PRIMARY_KEY")
     if os.getenv("DEBUG") == "False"

@@ -5,7 +5,7 @@ import discord
 from discord import Embed
 from dotenv import load_dotenv
 
-from thpsbot.helpers.config_helper import BOT, DEFAULT_IMG, THPS_RUN_API
+from thpsbot.helpers.config_helper import BOT, DEFAULT_IMG, THPS_RUN_API, TTV_TIMEOUT
 
 THPS_RUN = THPS_RUN_API.replace("/api", "")
 load_dotenv()
@@ -268,7 +268,7 @@ class EmbedCreator:
 
         secs_uptime = (
             datetime.now(timezone.utc) - datetime.fromisoformat(started_at)
-        ).total_seconds()
+        ).total_seconds() - (TTV_TIMEOUT * 60)
         hours = int(secs_uptime // 3600)
         minutes = int((secs_uptime % 3600) // 60)
 
