@@ -1,3 +1,8 @@
+## v3.3.2
+###### July 17, 2025
+*   Fixed an issue where reactions wouldn't be cleared properly if the Discord member prevented direct messages after being granted a reaction role.
+*   Fixed an issue where a reaction would be removed on the first attempt of adding reaction roles to a Discord message.
+
 ## v3.3.1
 ###### July 11, 2025
 *   Added a configuration `.env` setting to determine when a Twitch embed would be "timed-out" and become offline/removed.
