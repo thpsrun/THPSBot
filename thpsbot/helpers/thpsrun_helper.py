@@ -15,14 +15,18 @@ class THPSRunHelperResponse:
 
 class THPSRunHelper:
     @staticmethod
-    def get_run_id(url: str) -> str | None:
+    def get_run_id(
+        url: str,
+    ) -> str | None:
         """Ensures that either `www.speedrun.com` or `speedrun.com` is used and grabs the run ID."""
-        pattern = r"^(https?:\/\/)?(www\.)?speedrun\.com\/[^\/]+\/runs\/([a-zA-Z0-9]+)"
+        pattern = r"^(https?:\/\/)?(www\.)?speedrun\.com\/[^\/]+\/runs?\/([a-zA-Z0-9]+)"
         match = re.match(pattern, url)
         return match.group(3) if match else None
 
     @staticmethod
-    def format_time(seconds) -> str:
+    def format_time(
+        seconds: int,
+    ) -> str:
         hours, remainder = divmod(int(seconds), 3600)
         minutes, seconds_int = divmod(remainder, 60)
         milliseconds = int(round((seconds - int(seconds)) * 1000))
@@ -32,7 +36,9 @@ class THPSRunHelper:
         )
 
     @staticmethod
-    def get_run_data(data: dict[str, dict]) -> THPSRunHelperResponse | None:
+    def get_run_data(
+        data: dict[str, dict],
+    ) -> THPSRunHelperResponse | None:
         """Function that consolidates the retrevial of information from the thps.run API JSON."""
         if data["level"]:
             embed_title = f"{data['game']['name']} [IL]"
@@ -42,9 +48,11 @@ class THPSRunHelper:
         if data["place"] == 1:
             embed_title = "\U0001f3c6 (WR) " + embed_title
         elif data["place"] == 2:
-            embed_title = "\U0001f948 " + embed_title
+            embed_title = "\U0001f948 (PB) " + embed_title
         elif data["place"] == 3:
-            embed_title = "\U0001f949 " + embed_title
+            embed_title = "\U0001f949 (PB) " + embed_title
+        elif data["status"]["obsolete"] is False:
+            embed_title = "(PB) " + embed_title
 
         if isinstance(data["players"], list):
             players = ", ".join(player["name"] for player in data["players"])
