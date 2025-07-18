@@ -157,7 +157,6 @@ class StreamingCog(
 
             remove_stream = []
             for user, messages in self.live.items():
-
                 stream = await first(self.ttv_client.get_streams(user_login=user))
 
                 if stream is None or stream.game_id not in self.stream_game_lookup:
