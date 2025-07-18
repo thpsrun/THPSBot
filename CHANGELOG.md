@@ -1,3 +1,9 @@
+## v3.3.3
+###### July 18, 2025
+*   Added an additional error handler for when `CommandNotFound` is invoked.
+*   Changed the `Placement` field for approved embeds so it displays both the place of the run and the number of players in that category.
+*   Fixed an issue where only obsolete embeds would have points and placement displayed.
+
 ## v3.3.2
 ###### July 17, 2025
 *   Fixed an issue where reactions wouldn't be cleared properly if the Discord member prevented direct messages after being granted a reaction role.

@@ -20,6 +20,7 @@ class EmbedCreator:
         player: str,
         player_pfp: str | None,
         placement: int,
+        lb_count: int,
         points: float,
         platform: str,
         time: str,
@@ -46,8 +47,10 @@ class EmbedCreator:
 
         embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
 
-        if obsolete:
-            embed.add_field(name="Placement", value=f"{placement}", inline=True)
+        if not obsolete:
+            embed.add_field(
+                name="Placement", value=f"{placement} / {lb_count}", inline=True
+            )
             embed.add_field(name="Points", value=f"{points}", inline=True)
 
         embed.add_field(name="Platform", value=platform, inline=True)

@@ -43,6 +43,8 @@ class ErrorHandler(
             )
 
             self.bot._log.error("COMMAND_ERROR", exc_info=error)
+        elif isinstance(error, app_commands.errors.CommandNotFound):
+            self.bot._log.error("CMD_NOT_FOUND", exc_info=error)
         elif isinstance(error, discord.Forbidden) or isinstance(
             error, app_commands.errors.BotMissingPermissions
         ):
