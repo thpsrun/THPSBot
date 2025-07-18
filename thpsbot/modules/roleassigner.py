@@ -80,6 +80,7 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
                 return
 
             message_id = await interaction.channel.fetch_message(int(message))
+            await asyncio.sleep(0.5)
             await message_id.add_reaction(emoji)
 
             try:
@@ -174,15 +175,24 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
 
         if role in member.roles:
             await member.remove_roles(role)
-            await member.send(
-                f"{role.name} role was removed from your profile successfully in {guild.name}."
-            )
+
+            try:
+                await member.send(
+                    f"{role.name} role was removed from your profile successfully in {guild.name}."
+                )
+            except Exception:
+                pass
+
             await asyncio.sleep(0.5)
         else:
             await member.add_roles(role)
-            await member.send(
-                f"{role.name} role was added to your profile successfully in {guild.name}."
-            )
+            try:
+                await member.send(
+                    f"{role.name} role was added to your profile successfully in {guild.name}."
+                )
+            except discord.Forbidden:
+                pass
+
             await asyncio.sleep(0.5)
 
         await message.remove_reaction(payload.emoji, member)
