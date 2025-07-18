@@ -6,17 +6,23 @@
 *   Changed the `Placement` field for approved embeds so it displays both the place of the run and the number of players in that category.
 
 *   Fixed an issue where only obsolete embeds would have points and placement displayed.
-*   Fixed an issue where regular expression searches with a full SRC URL would return an error.
+*   Fixed an issue where regular expression searches with a full SRC URL would return an error in some cases.
+
+* * *
 
 ## v3.3.2
 ###### July 17, 2025
 *   Fixed an issue where reactions wouldn't be cleared properly if the Discord member prevented direct messages after being granted a reaction role.
 *   Fixed an issue where a reaction would be removed on the first attempt of adding reaction roles to a Discord message.
 
+* * *
+
 ## v3.3.1
 ###### July 11, 2025
 *   Added a configuration `.env` setting to determine when a Twitch embed would be "timed-out" and become offline/removed.
     *   Before, it was a hard-set 5 minutes. This is still the default, but now it is easily configurable instead of being hard-coded.
+
+* * *
 
 ## v3.3
 ###### July 11, 2025
@@ -24,10 +30,14 @@
 *   Added a check to see if a stream is a marathon stream, thus getting less embedded buttons.
 *   Added a check to streams that verify if it is streaming an approved game. If the `game_id` of the streamed game is not in the approved list, the offline countdown will begin.
 
+* * *
+
 ## v3.2.1
 ###### July 8, 2025
 *   Added error handling if Discord returns a 5XX HTTP code.
     *   This also covers the semi-rare `503 Service Unavailable` messages that Discord spits out every now and again.
+
+* * *
 
 ## v3.2
 ###### July 7, 2025
