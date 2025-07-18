@@ -318,7 +318,7 @@ class THPSRunCog(
                             points=get_run.data["meta"]["points"],
                             platform=get_run.data["system"]["platform"]["name"],
                             time=embed_data.time,
-                            time_delta=None,
+                            time_delta=embed_data.delta,
                             completed_runs=get_run.data["players"]["stats"][
                                 "total_runs"
                             ],
