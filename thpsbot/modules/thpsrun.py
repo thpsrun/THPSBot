@@ -356,10 +356,8 @@ class THPSRunCog(
 
             if post_run.ok:
                 await interaction.followup.send(
-                    content=(
-                        "Run successfully submitted to the thps.run API!\n",
-                        +f"Use `/run show {url}` to view it!",
-                    ),
+                    content="Run successfully submitted to the thps.run API!\n"
+                    + f"Use `/run show {url}`to view it!",
                     ephemeral=True,
                 )
             else:

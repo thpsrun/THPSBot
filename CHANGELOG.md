@@ -1,3 +1,10 @@
+## v3.3.4
+###### July 20, 2025
+*   Fixed an issue where the function in charge of syncing SRC run IDs and thps.run would crash if, after a run is verified or rejected, it would fail to remove the ID locally.
+*   Fixed an issue where import runs to thps.run would return an error because I put a comma in the wrong spot.
+
+* * *
+
 ## v3.3.3
 ###### July 18, 2025
 *   Added an additional error handler for when `CommandNotFound` is invoked.
