@@ -1,5 +1,13 @@
 ## v3.3.4
 ###### July 20, 2025
+*   Added a check at startup so that, if the bot is in dev mode, it will not change bot avatars.
+    *   I kept hitting the rate limit, lol.
+
+*   Changed the public poll's parameters to say `oX_<name/emoji>` instead of `option1_name`.
+    *   Helps keep this a bit more brief.
+
+*   Fixed an issue where editing a poll's time would invoke a crash.
+*   Fixed an issue where public polls requried the `time` parameter when it should've been optional.
 *   Fixed an issue where the function in charge of syncing SRC run IDs and thps.run would crash if, after a run is verified or rejected, it would fail to remove the ID locally.
 *   Fixed an issue where import runs to thps.run would return an error because I put a comma in the wrong spot.
 

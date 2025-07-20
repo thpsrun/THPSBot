@@ -12,7 +12,7 @@ from PIL import Image
 
 from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.autocomplete_helper import get_pfp_filenames
-from thpsbot.helpers.config_helper import GUILD_ID, STATUSES_LIST
+from thpsbot.helpers.config_helper import ENV, GUILD_ID, STATUSES_LIST
 from thpsbot.helpers.json_helper import JsonHelper
 
 if TYPE_CHECKING:
@@ -65,18 +65,21 @@ class ActivityCog(
     @tasks.loop(hours=24)
     async def pfp_change(self) -> None:
         """Changes the bot's profile picture every 24 hours."""
-        pfp = random.choice(os.listdir("pfps/"))
+        if ENV == "primary":
+            pfp = random.choice(os.listdir("pfps/"))
 
-        with open(f"pfps/{pfp}", "rb") as image:
-            await self.bot.user.edit(avatar=image.read())
+            with open(f"pfps/{pfp}", "rb") as image:
+                await self.bot.user.edit(avatar=image.read())
 
     @pfp_change.before_loop
     async def before_pfp_change(self) -> None:
         """Changes the bot's profile picture upon initialization."""
-        pfp = random.choice(os.listdir("pfps/"))
+        if ENV == "primary":
+            await self.bot.wait_until_ready()
+            pfp = random.choice(os.listdir("pfps/"))
 
-        with open(f"pfps/{pfp}", "rb") as image:
-            await self.bot.user.edit(avatar=image.read())
+            with open(f"pfps/{pfp}", "rb") as image:
+                await self.bot.user.edit(avatar=image.read())
 
     ###########################################################################
     # main_cmd_group Commands
