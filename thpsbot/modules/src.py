@@ -1,3 +1,4 @@
+import asyncio
 from typing import TYPE_CHECKING
 
 from discord.ext import tasks
@@ -58,6 +59,8 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                     )
                     self.local_src.append(run_id)
 
+        await asyncio.sleep(5)
+
         runs_list = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/runs/all?query=status"
             + "&embed=players,game,platform,record,platform",
@@ -79,14 +82,24 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                     headers=self.bot.thpsrun_header,
                     data=None,
                 )
-                self.local_src.remove(run["id"])
+
+                if run["id"] in self.local_src:
+                    self.local_src.remove(run["id"])
             elif run_check.ok:
-                if run_check.data["data"]["status"]["status"] != "new":
+                if run_check.data["data"]["status"]["status"] in [
+                    "verified",
+                    "rejected",
+                ]:
                     await AIOHTTPHelper.post(
                         url=f"{THPS_RUN_API}/runs/{run['id']}",
                         headers=self.bot.thpsrun_header,
                         data=None,
                     )
-                    self.local_src.remove(run["id"])
+
+                    if run["id"] in self.local_src:
+                        self.local_src.remove(run["id"])
+                elif run_check.data["data"]["status"]["status"] == "new":
+                    if run["id"] not in self.local_src:
+                        self.local_src.append(run["id"])
             else:
                 continue
