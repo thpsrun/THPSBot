@@ -1,3 +1,9 @@
+## v3.3.5
+###### July 20, 2025
+*   Fixed an issue where not having tags associated with a stream when attempting to find "NoSRL" would crash the livestream cog.
+
+* * *
+
 ## v3.3.4
 ###### July 20, 2025
 *   Added a check at startup so that, if the bot is in dev mode, it will not change bot avatars.

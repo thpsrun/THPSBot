@@ -110,7 +110,9 @@ class StreamingCog(
                             except (KeyError, TypeError):
                                 if (
                                     "NoSRL".casefold()
-                                    not in (tag.casefold() for tag in stream.tags)
+                                    not in (
+                                        tag.casefold() for tag in (stream.tags or [])
+                                    )
                                     and entry.get("ex_stream") is False
                                 ):
                                     thumbnail = stream.thumbnail_url.replace(
