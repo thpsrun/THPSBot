@@ -32,7 +32,7 @@ class THPSRunHelper:
         milliseconds = int(round((seconds - int(seconds)) * 1000))
 
         return f"{hours}:{minutes:02}:{seconds_int:02}" + (
-            f".{milliseconds}" if milliseconds > 0 else ""
+            f".{milliseconds:03}" if milliseconds > 0 else ""
         )
 
     @staticmethod

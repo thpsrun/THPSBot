@@ -1,3 +1,9 @@
+## v3.4.1
+###### January 17, 2026
+*   Fixed an issue where there was a whitespace proceeding `Time` in the submission embed.
+*   Fixed an issue where milliseconds were being truncated by the bot. [#23](https://github.com/thpsrun/THPSBot/issues/23)
+* * *
+
 ## v3.4
 ###### January 17, 2026
 
