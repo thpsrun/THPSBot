@@ -33,13 +33,7 @@ This group of commands help with setting up reactions on message that, when pres
 - Role: The role you want assigned to the reaction.
 ---
 ### POLL GROUP:
-This group of commands is used to create polls. Public polls use reactions to tally results (multi-choice is allowed); private polls use buttons to tally results (multi-choice is not allowed).
-`/poll public <message> <time> <option1> <option1_name> <option2> <option2_name> <option3> <option3_name> <option4> <option4_name> <option5> <option5_name>`
-- Message: The message you want to set for the poll.
-- Time: When the set time is hit, the author is mentioned and a report is sent via DM to them. Use <https://hammertime.cyou>.
-- Option1-5: Set the emoji you want to use for each emoji.
-- Option1-5_name: Set what the reaction actually means. It appears on the bot.
-
+This group of commands is used to create polls. Private polls use buttons to tally results (multi-choice is not allowed).
 `/poll private <message> <time> <option1> <option2> <option3> <option4> <option5>`
 - Message: The message you want to set for the poll.
 - Time: When the set time is hit, the author is mentioned and a report is sent via DM to them. Use <https://hammertime.cyou>.
@@ -73,3 +67,29 @@ This group of commands is used to interact with the thps.run API.
     - Show is used to create an embed of that specific run, using thps.run information. (ALL RUNS)
     - Import is used to force sync a run from Speedrun.com to thps.run (e.g., you need to update metadata, video is wrong, etc.) (ADMIN)
 - URL: The Speedrun.com URL (or run ID) of the run being shown or updated.
+---
+### AWARDS GROUP:
+This group of commands sets the reaction that will "mark" certain messages for The Tony's at years-end.
+`/awards setreaction <EMOJI>` (ADMIN)
+- Action: When set, when the emoji is used on a message then it will add it to a database. When the emoji is used, the following is saved:
+  - `message_id`
+  - `channel_id`
+  - `chanel_name`
+  - `author_id`
+  - `author_name`
+  - `author_username`
+  - `content`
+  - `message_link`
+  - `attachments`
+  - `marked_at`
+  - `marked_by_id`
+  - `original_timestamp`
+
+`/awards status`
+- Action: Shows the current reaction that was chosen and the amount of messages that have been marked.
+
+`/awards export` (ADMIN)
+- Action: Exports the current JSON database to JSON to the user who requested it.
+
+`/awards clear` (ADMIN)
+- Action: Exports the current JSON database to JSON to the user who requested it and clears the database to default.

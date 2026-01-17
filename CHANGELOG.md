@@ -1,5 +1,34 @@
+## v3.4
+###### January 17, 2026
+
+### Added
+*   Added proper type-checking and return typing to variables, objects, and functions when missed in previous verisons.
+
+### Re-added
+*   Re-added the "awards" emoji functionality (not retroactive), with the ability to set it via a command.
+    *   All three of the below commands are admin-only:
+    *   `/awards setreaction <REACTION>` will set the reaction to the award you chose.
+    *   `/awards export` will export the messages currently "marked" via the reaction to a JSON file.
+    *   `/awards clear` will export the JSON database and then clear it.
+    *   `/awards status` shows the currently assigned reaction to "mark" messages and how many have been set.
+
+### Updated
+*   Updated libraries to their latest verison.
+    *   Also updated Dockerfile binaries.
+
+### Removed
+*   Removed the ability to make public polls through the bot.
+    *   If you click on the "+" icon on the left-side of Discord messages, you can make public polls that way. You can't see *who* voted for what, but you can see the percentage that way.
+
+
+### Fixed
+*   Fixed an issue where `Service Unavailable (503)` errors would completely break parts of the bot.
+    *   Both background tasks and event listeners will make attempts to be better with Discord handling.
+
+* * *
+
 ## v3.3.5
-###### July 20, 2025
+###### October 13, 2025
 *   Fixed an issue where not having tags associated with a stream when attempting to find "NoSRL" would crash the livestream cog.
 
 * * *

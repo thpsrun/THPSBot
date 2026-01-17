@@ -20,7 +20,7 @@ from thpsbot.helpers.json_helper import JsonHelper
 from thpsbot.helpers.thpsrun_helper import THPSRunHelper
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 async def setup(bot: "THPSBot"):
@@ -34,14 +34,27 @@ async def teardown(bot: "THPSBot"):
 class THPSRunCog(
     Cog, name="THPSRun", description="Manages THPSBot's integration with thps.run"
 ):
+    submit_channel: discord.TextChannel
+    pb_channel: discord.TextChannel
+
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
-        self.thpsrun_header = {"Authorization": f"Api-Key {THPS_RUN_KEY}"}
-        self.submissions: dict[dict, str] = SUBMISSIONS_LIST
+        self.thpsrun_header: dict[str, str] = {
+            "Authorization": f"Api-Key {THPS_RUN_KEY}"
+        }
+        self.submissions: dict[str, dict] = SUBMISSIONS_LIST
 
     async def cog_load(self) -> None:
-        self.submit_channel = await self.bot.fetch_channel(SUBMISSION_CHANNEL)
-        self.pb_channel = await self.bot.fetch_channel(PB_WR_CHANNEL)
+        submit_ch = await self.bot.fetch_channel(SUBMISSION_CHANNEL)
+        pb_ch = await self.bot.fetch_channel(PB_WR_CHANNEL)
+
+        if not isinstance(submit_ch, discord.TextChannel):
+            raise RuntimeError("SUBMISSION_CHANNEL is not a TextChannel")
+        if not isinstance(pb_ch, discord.TextChannel):
+            raise RuntimeError("PB_WR_CHANNEL is not a TextChannel")
+
+        self.submit_channel = submit_ch
+        self.pb_channel = pb_ch
 
         self.bot.tree.add_command(
             self.thpsrun_group,
@@ -64,7 +77,20 @@ class THPSRunCog(
 
     @tasks.loop(seconds=30)
     async def check_approval_status(self):
-        """Checks the status of speedruns from thps.run every 15 seconds."""
+        """Checks the status of speedruns from thps.run every 30 seconds."""
+        try:
+            await self._check_approval_status_impl()
+        except discord.DiscordServerError:
+            self.bot._log.warning(
+                "Discord 503 error in check_approval_status, will retry next loop"
+            )
+        except TimeoutError:
+            self.bot._log.warning(
+                "Timeout error in check_approval_status, will retry next loop"
+            )
+
+    async def _check_approval_status_impl(self):
+        """Implementation of check_approval_status."""
         get_runs = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/runs/all?query=status"
             + "&embed=players,game,platform,record,platform",
@@ -254,7 +280,7 @@ class THPSRunCog(
                 data.update({"nickname": f"{nickname}"})
 
             if ex_stream is not None:
-                data.update({"ex_stream": f"{ex_stream}"})
+                data.update({"ex_stream": ex_stream})
 
             response = await AIOHTTPHelper.put(
                 url=f"{THPS_RUN_API}/players/{name}",

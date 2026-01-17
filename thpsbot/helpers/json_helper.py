@@ -11,7 +11,7 @@ class JsonHelper:
             return json.load(f)
 
     @staticmethod
-    def save_json(data: Any, filepath: str) -> bool:
-        """Saves JSON data to the specified filepath. Returns True if successful."""
+    def save_json(data: Any, filepath: str) -> None:
+        """Saves JSON data to the specified filepath."""
         with open(Path(filepath), "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)

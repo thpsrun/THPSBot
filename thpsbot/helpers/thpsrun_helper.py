@@ -61,14 +61,17 @@ class THPSRunHelper:
             players = data["players"]["name"]
             player_pfp = data["players"]["pfp"]
 
-        time_key_map = {
+        time_key_map: dict[str, tuple[str, str]] = {
             "realtime": ("time_secs", "RTA"),
             "realtime_noloads": ("timenl_secs", "LRT"),
             "ingame": ("timeigt_secs", "IGT"),
         }
 
         default_time = data["times"]["defaulttime"]
-        time_key, run_type = time_key_map.get(default_time)
+        time_info = time_key_map.get(default_time)
+        if time_info is None:
+            return None
+        time_key, run_type = time_info
         run_time = THPSRunHelper.format_time(data["times"][time_key])
 
         if data["record"]:

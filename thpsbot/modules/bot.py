@@ -16,7 +16,7 @@ from thpsbot.helpers.config_helper import ENV, GUILD_ID, STATUSES_LIST
 from thpsbot.helpers.json_helper import JsonHelper
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 async def setup(bot: "THPSBot"):
@@ -24,7 +24,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="GameActivites")
+    await bot.remove_cog(name="GameActivities")
 
 
 class ActivityCog(
@@ -52,34 +52,50 @@ class ActivityCog(
     @tasks.loop(minutes=60)
     async def status_loop(self) -> None:
         """Changes the bot's status every 60 minutes."""
-        game = Game(random.choice(self.gameslist))
-        await self.bot.change_presence(activity=game, status=Status.online)
+        try:
+            game = Game(random.choice(self.gameslist))
+            await self.bot.change_presence(activity=game, status=Status.online)
+        except discord.DiscordServerError:
+            self.bot._log.warning("Discord 503 error in status_loop, will retry next loop")
 
     @status_loop.before_loop
     async def before_status_loop(self) -> None:
         """Changes the bot's status upon initialization."""
         await self.bot.wait_until_ready()
-        game = Game(random.choice(self.gameslist))
-        await self.bot.change_presence(activity=game, status=Status.online)
+        try:
+            game = Game(random.choice(self.gameslist))
+            await self.bot.change_presence(activity=game, status=Status.online)
+        except discord.DiscordServerError:
+            self.bot._log.warning("Discord 503 error in before_status_loop")
 
     @tasks.loop(hours=24)
     async def pfp_change(self) -> None:
         """Changes the bot's profile picture every 24 hours."""
-        if ENV == "primary":
-            pfp = random.choice(os.listdir("pfps/"))
+        if ENV == "primary" and self.bot.user:
+            try:
+                pfp = random.choice(os.listdir("pfps/"))
 
-            with open(f"pfps/{pfp}", "rb") as image:
-                await self.bot.user.edit(avatar=image.read())
+                with open(f"pfps/{pfp}", "rb") as image:
+                    await self.bot.user.edit(avatar=image.read())
+            except discord.DiscordServerError:
+                self.bot._log.warning(
+                    "Discord 503 error in pfp_change, will retry next loop"
+                )
 
     @pfp_change.before_loop
     async def before_pfp_change(self) -> None:
         """Changes the bot's profile picture upon initialization."""
         if ENV == "primary":
             await self.bot.wait_until_ready()
-            pfp = random.choice(os.listdir("pfps/"))
+            if not self.bot.user:
+                return
+            try:
+                pfp = random.choice(os.listdir("pfps/"))
 
-            with open(f"pfps/{pfp}", "rb") as image:
-                await self.bot.user.edit(avatar=image.read())
+                with open(f"pfps/{pfp}", "rb") as image:
+                    await self.bot.user.edit(avatar=image.read())
+            except discord.DiscordServerError:
+                self.bot._log.warning("Discord 503 error in before_pfp_change")
 
     ###########################################################################
     # main_cmd_group Commands
@@ -156,6 +172,12 @@ class ActivityCog(
     ) -> None:
         """Adds, removes, or force changes statuses for THPSBot."""
         if action.value == "add":
+            if not status:
+                await interaction.response.send_message(
+                    "The `status` parameter is required for adding.",
+                    ephemeral=True,
+                )
+                return
             status = status.replace('"', "")
 
             if len(status) > 75:
@@ -323,6 +345,13 @@ class ActivityCog(
         else:
             if not pfp:
                 pfp = random.choice(os.listdir("pfps/"))
+
+            if not self.bot.user:
+                await interaction.followup.send(
+                    "Bot user not available.",
+                    ephemeral=True,
+                )
+                return
 
             with open(f"pfps/{pfp}", "rb") as image:
                 await self.bot.user.edit(avatar=image.read())
