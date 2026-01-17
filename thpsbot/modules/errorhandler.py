@@ -6,12 +6,12 @@ from discord import Interaction, app_commands
 from discord.ext.commands import Cog, ExtensionError
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 async def setup(bot: "THPSBot"):
-    await bot.add_cog(ErrorHandler(bot))
     cog = ErrorHandler(bot)
+    await bot.add_cog(cog)
 
     bot.tree.on_error = cog.on_app_command_error
 

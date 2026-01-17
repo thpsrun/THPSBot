@@ -155,7 +155,7 @@ class EmbedCreator:
             "ingame": "timeigt",
         }
 
-        if len(recent_main_runs) > 0:
+        if recent_main_runs and len(recent_main_runs) > 0:
             embed.add_field(name="Most Recent Main Game Runs", value="", inline=False)
 
             run_number = 1
@@ -176,7 +176,7 @@ class EmbedCreator:
 
                 run_number += 1
 
-        if len(recent_il_runs) > 0:
+        if recent_il_runs and len(recent_il_runs) > 0:
             embed.add_field(name="Most Recent IL Runs", value="", inline=False)
 
             run_number = 1
@@ -208,7 +208,7 @@ class EmbedCreator:
         twitch_pfp: str | None,
         thumbnail: str,
         src_username: str,
-    ) -> Embed:
+    ) -> tuple[Embed, discord.ui.View]:
         """This embed is used to display currently online livestreams."""
         if not twitch_pfp:
             twitch_pfp = DEFAULT_IMG

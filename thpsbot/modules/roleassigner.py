@@ -9,7 +9,7 @@ from thpsbot.helpers.config_helper import ENV, GUILD_ID, REACTIONS_LIST
 from thpsbot.helpers.json_helper import JsonHelper
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 async def setup(bot: "THPSBot"):
@@ -23,7 +23,7 @@ async def teardown(bot: "THPSBot"):
 class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction messages."):
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
-        self.reactions_list: dict[dict, str] = REACTIONS_LIST[ENV]
+        self.reactions_list: dict[str, dict] = REACTIONS_LIST[ENV]
 
     async def cog_load(self) -> None:
         self.bot.tree.add_command(
@@ -79,6 +79,15 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
                 )
                 return
 
+            if interaction.channel is None or not isinstance(
+                interaction.channel, discord.TextChannel
+            ):
+                await interaction.response.send_message(
+                    "This command must be used in a text channel.",
+                    ephemeral=True,
+                )
+                return
+
             message_id = await interaction.channel.fetch_message(int(message))
             await asyncio.sleep(0.5)
             await message_id.add_reaction(emoji)
@@ -99,6 +108,15 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
             )
         else:
             try:
+                if interaction.channel is None or not isinstance(
+                    interaction.channel, discord.TextChannel
+                ):
+                    await interaction.response.send_message(
+                        "This command must be used in a text channel.",
+                        ephemeral=True,
+                    )
+                    return
+
                 message_id = await interaction.channel.fetch_message(int(message))
 
                 if emoji or role:
@@ -148,8 +166,26 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
     async def on_raw_reaction_add(
         self, payload: discord.RawReactionActionEvent
     ) -> None:
+        try:
+            await self._handle_reaction_add(payload)
+        except discord.DiscordServerError:
+            self.bot._log.warning("Discord 503 error in on_raw_reaction_add")
+
+    async def _handle_reaction_add(
+        self, payload: discord.RawReactionActionEvent
+    ) -> None:
+        """Implementation of on_raw_reaction_add."""
+        if payload.guild_id is None:
+            return
+
         guild = self.bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+
         channel = guild.get_channel(payload.channel_id)
+        if channel is None or not isinstance(channel, discord.TextChannel):
+            return
+
         message = await channel.fetch_message(payload.message_id)
 
         emoji_str = str(payload.emoji)
@@ -168,10 +204,10 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
             return
 
         member = guild.get_member(payload.user_id)
-        if member.bot or member.id == self.bot.user.id:
-            return
-        elif not member:
+        if not member:
             member = await guild.fetch_member(payload.user_id)
+        if member.bot or (self.bot.user and member.id == self.bot.user.id):
+            return
 
         if role in member.roles:
             await member.remove_roles(role)
@@ -202,6 +238,15 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
     async def on_raw_reaction_clear(
         self, payload: discord.RawReactionClearEvent
     ) -> None:
+        try:
+            await self._handle_reaction_clear(payload)
+        except discord.DiscordServerError:
+            self.bot._log.warning("Discord 503 error in on_raw_reaction_clear")
+
+    async def _handle_reaction_clear(
+        self, payload: discord.RawReactionClearEvent
+    ) -> None:
+        """Implementation of on_raw_reaction_clear."""
         message_id = str(payload.message_id)
         if message_id in self.reactions_list:
             self.bot._log.warning(
@@ -209,7 +254,13 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
             )
 
             guild = self.bot.get_guild(payload.guild_id)
+            if guild is None:
+                return
+
             channel = guild.get_channel(payload.channel_id)
+            if channel is None or not isinstance(channel, discord.TextChannel):
+                return
+
             message = await channel.fetch_message(payload.message_id)
             await message.clear_reactions()
 

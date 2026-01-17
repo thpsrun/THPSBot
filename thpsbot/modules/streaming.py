@@ -27,7 +27,7 @@ from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 async def setup(bot: "THPSBot"):
@@ -41,19 +41,30 @@ async def teardown(bot: "THPSBot"):
 class StreamingCog(
     Cog, name="Streaming", description="Manages THPSBot's stream checks"
 ):
+    stream_channel: discord.TextChannel
+    stream_thread: discord.Thread | discord.TextChannel
+
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
         self.stream_role: int = int(self.bot.roles["admin"]["stream"])
-        self.ttv_games: list = TTVGAME_LIST
-        self.live: dict[dict, str] = LIVE_LIST
+        self.ttv_games: list[str] = TTVGAME_LIST
+        self.live: dict[str, dict] = LIVE_LIST
 
-        self.stream_game_lookup: list = TTVGAME_IDS
+        self.stream_game_lookup: list[str] = TTVGAME_IDS
 
         self.task_lock = asyncio.Lock()
 
     async def cog_load(self) -> None:
-        self.stream_channel = await self.bot.fetch_channel(STREAM_CHANNEL)
-        self.stream_thread = await self.bot.fetch_channel(STREAM_OFF_THREAD)
+        stream_ch = await self.bot.fetch_channel(STREAM_CHANNEL)
+        thread_ch = await self.bot.fetch_channel(STREAM_OFF_THREAD)
+
+        if not isinstance(stream_ch, discord.TextChannel):
+            raise RuntimeError("STREAM_CHANNEL is not a TextChannel")
+        if not isinstance(thread_ch, (discord.TextChannel, discord.Thread)):
+            raise RuntimeError("STREAM_OFF_THREAD is not a TextChannel or Thread")
+
+        self.stream_channel = stream_ch
+        self.stream_thread = thread_ch
         self.ttv_client = await Twitch(app_id=TTV_ID, app_secret=TTV_TOKEN)
 
         self.bot.tree.add_command(
@@ -77,6 +88,19 @@ class StreamingCog(
     @tasks.loop(minutes=1)
     async def stream_loop(self) -> None:
         """Checks livestream status of players every minute."""
+        try:
+            await self._stream_loop_impl()
+        except discord.DiscordServerError:
+            self.bot._log.warning(
+                "Discord 503 error in stream_loop, will retry next loop"
+            )
+        except TimeoutError:
+            self.bot._log.warning(
+                "Timeout error in stream_loop, will retry next loop"
+            )
+
+    async def _stream_loop_impl(self) -> None:
+        """Implementation of stream_loop."""
         async with self.task_lock:
             player_list = await AIOHTTPHelper.get(
                 url=f"{THPS_RUN_API}/players/all?query=streams",
@@ -103,7 +127,7 @@ class StreamingCog(
                             == stream.user_login.casefold()
                         ):
                             user = await first(
-                                self.ttv_client.get_users(logins=stream.user_login)
+                                self.ttv_client.get_users(logins=[stream.user_login])
                             )
                             try:
                                 self.live[user.display_name]
@@ -159,7 +183,7 @@ class StreamingCog(
 
             remove_stream = []
             for user, messages in self.live.items():
-                stream = await first(self.ttv_client.get_streams(user_login=user))
+                stream = await first(self.ttv_client.get_streams(user_login=[user]))
 
                 if stream is None or stream.game_id not in self.stream_game_lookup:
                     if messages["check"] >= TTV_TIMEOUT:
@@ -231,6 +255,19 @@ class StreamingCog(
     @tasks.loop(minutes=60)
     async def check_twitch_names(self) -> None:
         """Checks the names in the local JSON file to see if they are real Twitch games."""
+        try:
+            await self._check_twitch_names_impl()
+        except discord.DiscordServerError:
+            self.bot._log.warning(
+                "Discord 503 error in check_twitch_names, will retry next loop"
+            )
+        except TimeoutError:
+            self.bot._log.warning(
+                "Timeout error in check_twitch_names, will retry next loop"
+            )
+
+    async def _check_twitch_names_impl(self) -> None:
+        """Implementation of check_twitch_names."""
         for ttv_game in self.ttv_games:
             async for game in self.ttv_client.get_games(names=[ttv_game]):
                 if game.id not in self.stream_game_lookup:
@@ -268,7 +305,7 @@ class StreamingCog(
 
         if action.value == "add":
             if name not in self.ttv_games:
-                game = await first(self.ttv_client.get_games(names=name))
+                game = await first(self.ttv_client.get_games(names=[name]))
 
                 if game.id not in self.stream_game_lookup:
                     self.stream_game_lookup.append(game.id)

@@ -1,0 +1,10 @@
+{
+    "primary": {
+        "reaction": null,
+        "marked_messages": {}
+    },
+    "dev": {
+        "reaction": null,
+        "marked_messages": {}
+    }
+}

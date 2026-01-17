@@ -34,6 +34,7 @@ class AIOHTTPHelper:
         if cls._session is None or cls._session.closed:
             await cls.init_session()
 
+        assert cls._session is not None
         async with cls._session.get(url, headers=headers, timeout=timeout) as response:
             status = response.status
             data = None

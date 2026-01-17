@@ -1,22 +1,30 @@
 from typing import TYPE_CHECKING
 
-from discord import Interaction, Member
+from discord import Interaction, Member, User
 from discord.app_commands import CheckFailure, check
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 def is_admin():
-    """Restricts commands to requiring to be in an admin or moderator role. Use for sub-commands."""
+    """Restricts commands to requiring to be in an admin or moderator role."""
 
     @check
-    async def predicate(interaction: Interaction):
-        bot: "THPSBot" = interaction.client
-        if interaction.user == interaction.guild.owner:
+    async def predicate(interaction: Interaction) -> bool:
+        bot: "THPSBot" = interaction.client  # type: ignore[assignment]
+
+        if interaction.guild is None:
+            raise CheckFailure("This command must be used in a guild.")
+
+        user = interaction.user
+        if not isinstance(user, Member):
+            raise CheckFailure("Could not verify user permissions.")
+
+        if user == interaction.guild.owner:
             return True
 
-        for role in interaction.user.roles:
+        for role in user.roles:
             if role.id in list(bot.roles.get("admin", {}).values()):
                 return True
 
@@ -25,9 +33,12 @@ def is_admin():
     return predicate
 
 
-async def is_admin_user(user: Member, bot: "THPSBot") -> bool:
+async def is_admin_user(user: Member | User, bot: "THPSBot") -> bool:
     """Returns True if the user is the owner or has an admin/mod role."""
-    if user == user.guild.owner:
+    if not isinstance(user, Member):
+        return False
+
+    if user.guild.owner and user == user.guild.owner:
         return True
 
     for role in user.roles:

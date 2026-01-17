@@ -1,7 +1,6 @@
 import logging
 import os
 import time
-from typing import TypeVar
 
 import discord
 import sentry_sdk
@@ -20,8 +19,6 @@ from thpsbot.helpers.config_helper import (
 from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.setup_json import setup_json
 from thpsbot.helpers.setup_logging import setup_logging
-
-T = TypeVar("T")
 
 
 class BotContext(EmbedCreator, commands.Context):
@@ -46,7 +43,7 @@ class THPSBot(commands.Bot):
         self.thpsrun_header: dict[str, str] = {
             "Authorization": f"Api-Key {THPS_RUN_KEY}"
         }
-        self.roles: dict[dict, str] = ROLES_LIST[ENV]
+        self.roles: dict[str, dict] = ROLES_LIST[ENV]
         self._log.info("Bot successfully started...")
 
         if ENV == "primary":

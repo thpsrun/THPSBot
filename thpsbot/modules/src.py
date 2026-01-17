@@ -1,6 +1,7 @@
 import asyncio
 from typing import TYPE_CHECKING
 
+import discord
 from discord.ext import tasks
 from discord.ext.commands import Cog
 
@@ -8,7 +9,7 @@ from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.config_helper import THPS_RUN_API
 
 if TYPE_CHECKING:
-    from main import THPSBot
+    from thpsbot.main import THPSBot
 
 
 async def setup(bot: "THPSBot"):
@@ -32,6 +33,19 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
 
     @tasks.loop(minutes=1)
     async def src_check(self) -> None:
+        try:
+            await self._src_check_impl()
+        except discord.DiscordServerError:
+            self.bot._log.warning(
+                "Discord 503 error in src_check, will retry next loop"
+            )
+        except TimeoutError:
+            self.bot._log.warning(
+                "Timeout error in src_check, will retry next loop"
+            )
+
+    async def _src_check_impl(self) -> None:
+        """Implementation of src_check."""
         game_list = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/games/all",
             headers=self.bot.thpsrun_header,
@@ -67,7 +81,7 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
             headers=self.bot.thpsrun_header,
         )
 
-        if not src_check.ok:
+        if not runs_list.ok:
             return
 
         for run in runs_list.data["new_runs"]:
