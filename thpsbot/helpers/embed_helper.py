@@ -56,7 +56,7 @@ class EmbedCreator:
         embed.add_field(name="Platform", value=platform, inline=True)
         embed.set_footer(text=BOT)
 
-        embed.description = f"{subcategory}\n Time: {time} ({run_type})"
+        embed.description = f"{subcategory}\nTime: {time} ({run_type})"
 
         if time_delta:
             embed.add_field(name="WR [Delta]", value=time_delta, inline=True)
@@ -100,7 +100,7 @@ class EmbedCreator:
         embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
         embed.set_footer(text=BOT)
 
-        embed.description = f"{subcategory}\n Time: {time} ({run_type})"
+        embed.description = f"{subcategory}\nTime: {time} ({run_type})"
 
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
