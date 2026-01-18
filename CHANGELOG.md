@@ -1,3 +1,8 @@
+## v3.4.2
+###### January 18, 2026
+*   Added additional connection logic to `AIOHTTPHelper` that, when a site is inaccessible, will suppress the errors and warnings 20 times before raising a unique exception to Sentry.
+* * *
+
 ## v3.4.1
 ###### January 17, 2026
 *   Fixed an issue where there was a whitespace proceeding `Time` in the submission embed.
