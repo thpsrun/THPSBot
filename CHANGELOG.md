@@ -1,10 +1,16 @@
+## v3.5.1
+###### January 18, 2026
+*   Fixed an issue where the wrong type was declared in `awards.py`, causing an error.
+*   Fixed an issue where the connection to Discord could close and not re-open in time, causing a race condition.
+    *   Now, it will gracefully catch it instead of crashing the cog.
+* * *
+
 ## v3.5
 ###### January 18, 2026
 *   Added the ability for streams to auto-publish in the selected livestream channel.
     *   If it is NOT an announcements channel, it will suppress the error (embed and role mention will still go through).
         *   This also counts the 10/hour rate limiting.
 * * *
-
 
 ## v3.4.2
 ###### January 18, 2026

@@ -8,7 +8,7 @@ from discord import Interaction, app_commands
 from discord.ext.commands import Cog
 
 from thpsbot.helpers.auth_helper import is_admin
-from thpsbot.helpers.config_helper import ENV, GUILD_ID, AWARDS_LIST
+from thpsbot.helpers.config_helper import AWARDS_LIST, ENV, GUILD_ID
 from thpsbot.helpers.json_helper import JsonHelper
 
 if TYPE_CHECKING:
@@ -23,7 +23,9 @@ async def teardown(bot: "THPSBot"):
     await bot.remove_cog(name="Awards")
 
 
-class AwardsCog(Cog, name="Awards", description="Mark messages for end-of-year awards."):
+class AwardsCog(
+    Cog, name="Awards", description="Mark messages for end-of-year awards."
+):
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
         self.awards_data: dict = AWARDS_LIST[ENV]
@@ -38,7 +40,7 @@ class AwardsCog(Cog, name="Awards", description="Mark messages for end-of-year a
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
             self.awards_group.name,
-            type=discord.app_commands.AppCommandType.chat_input,
+            type=discord.AppCommandType.chat_input,
             guild=discord.Object(id=GUILD_ID),
         )
 
@@ -219,10 +221,14 @@ class AwardsCog(Cog, name="Awards", description="Mark messages for end-of-year a
             return
 
         # Build the message link
-        message_link = f"https://discord.com/channels/{guild.id}/{channel.id}/{message.id}"
+        message_link = (
+            f"https://discord.com/channels/{guild.id}/{channel.id}/{message.id}"
+        )
 
         # Collect attachment URLs
-        attachments = [att.url for att in message.attachments] if message.attachments else []
+        attachments = (
+            [att.url for att in message.attachments] if message.attachments else []
+        )
 
         # Store the marked message
         marked_data = {
