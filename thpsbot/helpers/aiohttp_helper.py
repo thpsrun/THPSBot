@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
-from aiohttp.client_exceptions import ClientConnectorError
+from aiohttp.client_exceptions import ClientConnectionError, ClientConnectorError
 
 
 @dataclass
@@ -79,7 +79,7 @@ class AIOHTTPHelper:
                 else:
                     data = await response.read()
                 return AIOHTTPResponse(status=status, data=data)
-        except ClientConnectorError:
+        except (ClientConnectorError, ClientConnectionError):
             cls._host_failures[host] = cls._host_failures.get(host, 0) + 1
 
             if cls._host_failures[host] >= cls._max_failures:
