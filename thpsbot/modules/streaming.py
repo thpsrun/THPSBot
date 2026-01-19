@@ -159,10 +159,10 @@ class StreamingCog(
                                         embed=embed, view=view
                                     )
 
-                                    try:
-                                        await embed_stream.publish()
-                                    except discord.HTTPException:
-                                        pass
+                                    # try:
+                                    #     await embed_stream.publish()
+                                    # except discord.HTTPException:
+                                    #     pass
 
                                     role_msg = await self.stream_channel.send(
                                         f"<@&{self.stream_role}>"
