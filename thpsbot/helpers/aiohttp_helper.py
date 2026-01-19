@@ -29,6 +29,7 @@ class AIOHTTPHelper:
     _session: aiohttp.ClientSession | None = None
     _host_failures: dict[str, int] = {}
     _max_failures: int = 20
+    _reconnecting: bool = False
 
     @staticmethod
     def _extract_host(
@@ -79,7 +80,7 @@ class AIOHTTPHelper:
                 else:
                     data = await response.read()
                 return AIOHTTPResponse(status=status, data=data)
-        except (ClientConnectorError, ClientConnectionError):
+        except ClientConnectorError:
             cls._host_failures[host] = cls._host_failures.get(host, 0) + 1
 
             if cls._host_failures[host] >= cls._max_failures:
@@ -92,6 +93,17 @@ class AIOHTTPHelper:
                 status=503,
                 data=None,
             )
+        except ClientConnectionError:
+            if cls._reconnecting:
+                cls._reconnecting = False
+                return AIOHTTPResponse(status=503, data=None)
+
+            cls._reconnecting = True
+            cls._session = None
+            await cls.init_session()
+            result = await cls.get(url, headers, timeout)
+            cls._reconnecting = False
+            return result
 
     @staticmethod
     async def post(
