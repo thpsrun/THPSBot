@@ -95,9 +95,7 @@ class StreamingCog(
                 "Discord 503 error in stream_loop, will retry next loop"
             )
         except TimeoutError:
-            self.bot._log.warning(
-                "Timeout error in stream_loop, will retry next loop"
-            )
+            self.bot._log.warning("Timeout error in stream_loop, will retry next loop")
 
     async def _stream_loop_impl(self) -> None:
         """Implementation of stream_loop."""
@@ -160,6 +158,12 @@ class StreamingCog(
                                     embed_stream = await self.stream_channel.send(
                                         embed=embed, view=view
                                     )
+
+                                    try:
+                                        await embed_stream.publish()
+                                    except discord.HTTPException:
+                                        pass
+
                                     role_msg = await self.stream_channel.send(
                                         f"<@&{self.stream_role}>"
                                     )
