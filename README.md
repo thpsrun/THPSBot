@@ -1,4 +1,4 @@
-# THPSBot v3.5.1
+# THPSBot v3.5.2
 
 ## What is this!?
 THPSBot is a bot for the [THPS Speedrun Discord](https://thps.run/discord). It is a bot specially designed by [ThePackle](https://twitter.com/thepackle) that combines multiple functions. This includes:

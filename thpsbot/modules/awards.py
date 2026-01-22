@@ -103,13 +103,12 @@ class AwardsCog(
             ephemeral=True,
         )
 
-    @awards_group.command(
+    """ @awards_group.command(
         name="clear",
         description="Export and clear all marked messages (admin only).",
     )
     @is_admin()
     async def clear(self, interaction: Interaction) -> None:
-        """Export all marked messages, then clear the database."""
         marked = self.awards_data.get("marked_messages", {})
 
         if not marked:
@@ -119,7 +118,6 @@ class AwardsCog(
             )
             return
 
-        # Export first
         export_data = {
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "cleared": True,
@@ -133,7 +131,6 @@ class AwardsCog(
             filename=f"awards_cleared_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json",
         )
 
-        # Clear the database
         count = len(marked)
         self.awards_data["marked_messages"] = {}
         AWARDS_LIST[ENV] = self.awards_data
@@ -143,7 +140,7 @@ class AwardsCog(
             f"Cleared {count} marked messages. Backup file attached.",
             file=file,
             ephemeral=True,
-        )
+        ) """
 
     @awards_group.command(
         name="status",
@@ -183,27 +180,22 @@ class AwardsCog(
         self, payload: discord.RawReactionActionEvent
     ) -> None:
         """Check if the reaction is the awards reaction and log the message."""
-        # Skip if no awards reaction is configured
         award_reaction = self.awards_data.get("reaction")
         if not award_reaction:
             return
 
-        # Skip bot reactions
         if self.bot.user and payload.user_id == self.bot.user.id:
             return
 
-        # Check if this is the awards reaction
         emoji_str = str(payload.emoji)
         if emoji_str != award_reaction:
             return
 
         message_id_str = str(payload.message_id)
 
-        # Skip if already marked
         if message_id_str in self.awards_data.get("marked_messages", {}):
             return
 
-        # Fetch the message details
         if payload.guild_id is None:
             return
 
@@ -220,17 +212,14 @@ class AwardsCog(
         except discord.NotFound:
             return
 
-        # Build the message link
         message_link = (
             f"https://discord.com/channels/{guild.id}/{channel.id}/{message.id}"
         )
 
-        # Collect attachment URLs
         attachments = (
             [att.url for att in message.attachments] if message.attachments else []
         )
 
-        # Store the marked message
         marked_data = {
             "message_id": str(message.id),
             "channel_id": str(channel.id),

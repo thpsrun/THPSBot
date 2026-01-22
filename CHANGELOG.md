@@ -1,3 +1,9 @@
+## v3.5.2
+###### January 22, 2026
+*   Disabled `/awards clear`.
+* * *
+
+
 ## v3.5.1
 ###### January 18, 2026
 *   Fixed an issue where the wrong type was declared in `awards.py`, causing an error.
