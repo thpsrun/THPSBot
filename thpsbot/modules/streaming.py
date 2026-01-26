@@ -25,6 +25,7 @@ from thpsbot.helpers.config_helper import (
 )
 from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -35,7 +36,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="Streaming")
+    await bot.remove_cog(name="Streaming")  # type: ignore
 
 
 class StreamingCog(
@@ -86,16 +87,10 @@ class StreamingCog(
         self.stream_loop.cancel()
 
     @tasks.loop(minutes=1)
+    @TaskHelper.safe_task
     async def stream_loop(self) -> None:
         """Checks livestream status of players every minute."""
-        try:
-            await self._stream_loop_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in stream_loop, will retry next loop"
-            )
-        except TimeoutError:
-            self.bot._log.warning("Timeout error in stream_loop, will retry next loop")
+        await self._stream_loop_impl()
 
     async def _stream_loop_impl(self) -> None:
         """Implementation of stream_loop."""
@@ -257,18 +252,10 @@ class StreamingCog(
             JsonHelper.save_json(self.live, "json/live.json")
 
     @tasks.loop(minutes=60)
+    @TaskHelper.safe_task
     async def check_twitch_names(self) -> None:
         """Checks the names in the local JSON file to see if they are real Twitch games."""
-        try:
-            await self._check_twitch_names_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in check_twitch_names, will retry next loop"
-            )
-        except TimeoutError:
-            self.bot._log.warning(
-                "Timeout error in check_twitch_names, will retry next loop"
-            )
+        await self._check_twitch_names_impl()
 
     async def _check_twitch_names_impl(self) -> None:
         """Implementation of check_twitch_names."""

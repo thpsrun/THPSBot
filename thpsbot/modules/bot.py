@@ -14,6 +14,7 @@ from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.autocomplete_helper import get_pfp_filenames
 from thpsbot.helpers.config_helper import ENV, GUILD_ID, STATUSES_LIST
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -24,7 +25,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="GameActivities")
+    await bot.remove_cog(name="GameActivities")  # type: ignore
 
 
 class ActivityCog(
@@ -50,13 +51,11 @@ class ActivityCog(
         self.pfp_change.cancel()
 
     @tasks.loop(minutes=60)
+    @TaskHelper.safe_task
     async def status_loop(self) -> None:
         """Changes the bot's status every 60 minutes."""
-        try:
-            game = Game(random.choice(self.gameslist))
-            await self.bot.change_presence(activity=game, status=Status.online)
-        except discord.DiscordServerError:
-            self.bot._log.warning("Discord 503 error in status_loop, will retry next loop")
+        game = Game(random.choice(self.gameslist))
+        await self.bot.change_presence(activity=game, status=Status.online)
 
     @status_loop.before_loop
     async def before_status_loop(self) -> None:
@@ -69,18 +68,14 @@ class ActivityCog(
             self.bot._log.warning("Discord 503 error in before_status_loop")
 
     @tasks.loop(hours=24)
+    @TaskHelper.safe_task
     async def pfp_change(self) -> None:
         """Changes the bot's profile picture every 24 hours."""
         if ENV == "primary" and self.bot.user:
-            try:
-                pfp = random.choice(os.listdir("pfps/"))
+            pfp = random.choice(os.listdir("pfps/"))
 
-                with open(f"pfps/{pfp}", "rb") as image:
-                    await self.bot.user.edit(avatar=image.read())
-            except discord.DiscordServerError:
-                self.bot._log.warning(
-                    "Discord 503 error in pfp_change, will retry next loop"
-                )
+            with open(f"pfps/{pfp}", "rb") as image:
+                await self.bot.user.edit(avatar=image.read())
 
     @pfp_change.before_loop
     async def before_pfp_change(self) -> None:
@@ -306,9 +301,6 @@ class ActivityCog(
                     )
                     return
 
-                image = Image.open(BytesIO(response.data))
-                image = image.resize((128, 128))
-
                 await interaction.followup.send(
                     "What do you want the name of the filename to be?",
                     ephemeral=True,
@@ -329,7 +321,10 @@ class ActivityCog(
                     new_filename = msg.content
                     await msg.delete()
 
-                    image.save(f"pfps/{new_filename}{file_extension}")
+                    if response.data is not None:
+                        image = Image.open(BytesIO(response.data))
+                        image = image.resize((128, 128))
+                        image.save(f"pfps/{new_filename}{file_extension}")
 
                     await interaction.followup.send(
                         f"{new_filename} has been successfully added!",

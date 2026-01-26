@@ -1,3 +1,19 @@
+## v3.6
+###### January 26, 2026
+*   Reworked error handling works within the bot to (hopefully) reduce errors being sent to Sentry.
+
+*   Added Warnings to submission embeds. The following scenarios will raise a warning label on submission embeds:
+    *   The run's video is from Twitch and not YouTube.
+    *   The run's timing method is not consistent to the game's default.
+    *   The IL submission has more than one timing method added.
+*   Added After-Warnings that appear when a submission is approved, but it still had potential issues.
+    *   This is more to help admins or mods catch issues.
+    *   There is an additional note to ask a moderator to run the `/thpsrun run import <url>` command.
+*   Added Pydantic models.
+
+*   Re-added public polls.
+* * *
+
 ## v3.5.2
 ###### January 22, 2026
 *   Disabled `/awards clear`.

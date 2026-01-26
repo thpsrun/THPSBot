@@ -1,12 +1,12 @@
 import asyncio
 from typing import TYPE_CHECKING
 
-import discord
 from discord.ext import tasks
 from discord.ext.commands import Cog
 
 from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.config_helper import THPS_RUN_API
+from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -17,7 +17,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="SRC")
+    await bot.remove_cog(name="SRC")  # type: ignore
 
 
 class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's API."):
@@ -32,17 +32,9 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
         self.src_check.cancel()
 
     @tasks.loop(minutes=1)
+    @TaskHelper.safe_task
     async def src_check(self) -> None:
-        try:
-            await self._src_check_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in src_check, will retry next loop"
-            )
-        except TimeoutError:
-            self.bot._log.warning(
-                "Timeout error in src_check, will retry next loop"
-            )
+        await self._src_check_impl()
 
     async def _src_check_impl(self) -> None:
         """Implementation of src_check."""

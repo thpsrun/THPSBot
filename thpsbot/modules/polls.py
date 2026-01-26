@@ -11,6 +11,7 @@ from discord.ext.commands import Cog
 from thpsbot.helpers.auth_helper import is_admin_user
 from thpsbot.helpers.config_helper import GUILD_ID, REMINDER_LIST
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -21,7 +22,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="Polls")
+    await bot.remove_cog(name="Polls")  # type: ignore
 
 
 class PrivatePollView(discord.ui.View):
@@ -118,14 +119,10 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         self.check_reminders.cancel()
 
     @tasks.loop(seconds=30)
+    @TaskHelper.safe_task
     async def check_reminders(self) -> None:
         """Checks poll statuses every 30 seconds."""
-        try:
-            await self._check_reminders_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in check_reminders, will retry next loop"
-            )
+        await self._check_reminders_impl()
 
     async def _check_reminders_impl(self) -> None:
         """Implementation of check_reminders."""

@@ -17,7 +17,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="Roles")
+    await bot.remove_cog(name="Roles")  # type: ignore
 
 
 class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction messages."):

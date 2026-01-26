@@ -17,6 +17,7 @@ from thpsbot.helpers.config_helper import (
 )
 from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.task_helper import TaskHelper
 from thpsbot.helpers.thpsrun_helper import THPSRunHelper
 
 if TYPE_CHECKING:
@@ -28,7 +29,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="THPSRun")
+    await bot.remove_cog(name="THPSRun")  # type: ignore
 
 
 class THPSRunCog(
@@ -76,18 +77,10 @@ class THPSRunCog(
         await AIOHTTPHelper.close_session()
 
     @tasks.loop(seconds=30)
+    @TaskHelper.safe_task
     async def check_approval_status(self):
         """Checks the status of speedruns from thps.run every 30 seconds."""
-        try:
-            await self._check_approval_status_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in check_approval_status, will retry next loop"
-            )
-        except TimeoutError:
-            self.bot._log.warning(
-                "Timeout error in check_approval_status, will retry next loop"
-            )
+        await self._check_approval_status_impl()
 
     async def _check_approval_status_impl(self):
         """Implementation of check_approval_status."""

@@ -20,7 +20,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="Awards")
+    await bot.remove_cog(name="Awards")  # type: ignore
 
 
 class AwardsCog(
