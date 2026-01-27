@@ -6,6 +6,7 @@ from discord import Embed
 from dotenv import load_dotenv
 
 from thpsbot.helpers.config_helper import BOT, DEFAULT_IMG, THPS_RUN_API, TTV_TIMEOUT
+from thpsbot.models.thpsrun_api import THPSRunRuns
 
 THPS_RUN = THPS_RUN_API.replace("/api", "")
 load_dotenv()
@@ -82,7 +83,8 @@ class EmbedCreator:
         time: str,
         run_type: str,
         thumbnail: str | None,
-        submitted: str,
+        submitted: str | None,
+        warnings: list | None,
     ) -> Embed:
         """This embed is used to showcase that an embed is in the queue from Speedrun.com."""
         if player_pfp:
@@ -94,8 +96,10 @@ class EmbedCreator:
             title=title,
             url=url,
             color=random.randint(0, 0xFFFFFF),
-            timestamp=datetime.fromisoformat(submitted.replace("Z", "+00:00")),
         )
+
+        if submitted:
+            embed.timestamp = datetime.fromisoformat(submitted.replace("Z", "+00:00"))
 
         embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
         embed.set_footer(text=BOT)
@@ -104,6 +108,14 @@ class EmbedCreator:
 
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
+
+        if warnings:
+            for warning in warnings:
+                embed.add_field(
+                    name="Warning",
+                    value=warning,
+                    inline=True,
+                )
 
         return embed
 
@@ -116,8 +128,8 @@ class EmbedCreator:
         main_points: int | None,
         il_points: int | None,
         total_runs: int,
-        recent_main_runs: dict[str, dict] | None,
-        recent_il_runs: dict[str, dict] | None,
+        recent_main_runs: list[THPSRunRuns] | None,
+        recent_il_runs: list[THPSRunRuns] | None,
     ) -> Embed:
         """This embed is used to display players from the thps.run API."""
         if nickname:
@@ -160,13 +172,15 @@ class EmbedCreator:
 
             run_number = 1
             for run in recent_main_runs:
-                default_time = run["times"]["defaulttime"]
+                default_time = run.times.defaulttime
                 time_key = time_key_map.get(default_time)
+                if time_key is None:
+                    continue
 
-                game = run["game"]["slug"].upper()
-                subcat = run["subcategory"]
-                time = run["times"][time_key]
-                url = run["meta"]["url"]
+                game = run.game.slug.upper()
+                subcat = run.subcategory
+                time = getattr(run.times, time_key)
+                url = run.meta.url
 
                 embed.add_field(
                     name=run_number,
@@ -181,13 +195,15 @@ class EmbedCreator:
 
             run_number = 1
             for run in recent_il_runs:
-                default_time = run["times"]["defaulttime"]
+                default_time = run.times.defaulttime
                 time_key = time_key_map.get(default_time)
+                if time_key is None:
+                    continue
 
-                game = run["game"]["slug"].upper()
-                subcat = run["subcategory"]
-                time = run["times"][time_key]
-                url = run["meta"]["url"]
+                game = run.game.slug.upper()
+                subcat = run.subcategory
+                time = getattr(run.times, time_key)
+                url = run.meta.url
 
                 embed.add_field(
                     name=run_number,

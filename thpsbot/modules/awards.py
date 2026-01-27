@@ -41,7 +41,6 @@ class AwardsCog(
         self.bot.tree.remove_command(
             self.awards_group.name,
             type=discord.AppCommandType.chat_input,
-            guild=discord.Object(id=GUILD_ID),
         )
 
     ###########################################################################

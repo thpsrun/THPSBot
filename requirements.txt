@@ -2,5 +2,5 @@ discord.py==2.6.*
 pillow>=12.1.0
 pydantic==2.*
 python-dotenv==1.2.*
-sentry-sdk>=2.49.0
+sentry-sdk>=2.50.0
 twitchAPI>=4.5.0

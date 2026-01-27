@@ -34,8 +34,7 @@ class RoleCog(Cog, name="Roles", description="Manages THPSBot's reaction message
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
-            self.reaction_group,
-            type=app_commands.Group,
+            self.reaction_group.name,
             guild=discord.Object(id=GUILD_ID),
         )
 

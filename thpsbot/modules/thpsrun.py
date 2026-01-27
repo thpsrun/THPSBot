@@ -19,6 +19,7 @@ from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
 from thpsbot.helpers.task_helper import TaskHelper
 from thpsbot.helpers.thpsrun_helper import THPSRunHelper
+from thpsbot.models.thpsrun_api import THPSRunPBs, THPSRunRuns
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -68,8 +69,7 @@ class THPSRunCog(
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
-            self.thpsrun_group,
-            type=app_commands.Group,
+            self.thpsrun_group.name,
             guild=discord.Object(id=GUILD_ID),
         )
 
@@ -92,42 +92,43 @@ class THPSRunCog(
 
         if get_runs.ok and get_runs.data:
             for run in get_runs.data["new_runs"]:
+                run = THPSRunRuns.model_validate(run)
                 try:
-                    self.submissions[run["id"]]
+                    self.submissions[run.id]
                 except (KeyError, TypeError):
                     embed_data = THPSRunHelper.get_run_data(run)
 
                     try:
-                        role_id = int(
-                            self.bot.roles["mods"][run["game"]["slug"].upper()]
-                        )
+                        role_id = int(self.bot.roles["mods"][run.game.slug.upper()])
                         role_msg = await self.submit_channel.send(f"<@&{role_id}>")
                         role_msg_id = role_msg.id
                     except Exception:
                         role_msg_id = None
 
-                    embed_msg = await self.submit_channel.send(
-                        embed=EmbedCreator.submission_embed(
-                            title=embed_data.embed_title,
-                            subcategory=run["subcategory"],
-                            url=run["meta"]["url"],
-                            player=embed_data.players,
-                            player_pfp=embed_data.player_pfp,
-                            time=embed_data.time,
-                            run_type=embed_data.run_type,
-                            thumbnail=run["game"]["boxart"],
-                            submitted=run["date"],
+                    if embed_data:
+                        embed_msg = await self.submit_channel.send(
+                            embed=EmbedCreator.submission_embed(
+                                title=embed_data.embed_title,
+                                subcategory=run.subcategory,
+                                url=run.meta.url,
+                                player=embed_data.players,
+                                player_pfp=embed_data.player_pfp,
+                                time=embed_data.time,
+                                run_type=embed_data.run_type,
+                                thumbnail=run.game.boxart,
+                                submitted=run.date,
+                                warnings=embed_data.warnings,
+                            )
                         )
-                    )
 
-                    self.submissions.update(
-                        {
-                            f"{run['id']}": {
-                                "submission": embed_msg.id,
-                                "role": role_msg_id,
+                        self.submissions.update(
+                            {
+                                f"{run.id}": {
+                                    "submission": embed_msg.id,
+                                    "role": role_msg_id,
+                                }
                             }
-                        }
-                    )
+                        )
                 except Exception as e:
                     self.bot._log.exception(e)
 
@@ -139,46 +140,63 @@ class THPSRunCog(
             )
 
             if run_verify.ok and run_verify.data:
-                if run_verify.data["status"]["vid_status"] == "verified":
-                    embed_data = THPSRunHelper.get_run_data(run_verify.data)
+                run_verify = THPSRunRuns.model_validate(run_verify.data)
+                if run_verify.status.vid_status == "verified":
+                    embed_data = THPSRunHelper.get_run_data(run_verify)
 
-                    await self.pb_channel.send(
-                        embed=EmbedCreator.approved_embed(
-                            title=embed_data.embed_title,
-                            subcategory=run_verify.data["subcategory"],
-                            url=run_verify.data["meta"]["url"],
-                            player=embed_data.players,
-                            player_pfp=embed_data.player_pfp,
-                            placement=run_verify.data["place"],
-                            lb_count=run_verify.data["lb_count"],
-                            points=run_verify.data["meta"]["points"],
-                            platform=run_verify.data["system"]["platform"]["name"],
-                            time=embed_data.time,
-                            time_delta=embed_data.delta,
-                            completed_runs=run_verify.data["players"]["stats"][
-                                "total_runs"
-                            ],
-                            run_type=embed_data.run_type,
-                            description=run_verify.data["description"],
-                            thumbnail=run_verify.data["game"]["boxart"],
-                            approval=run_verify.data["status"]["v_date"],
-                            obsolete=run_verify.data["status"]["obsolete"],
+                    if embed_data:
+                        if isinstance(run_verify.players, list):
+                            completed_runs = run_verify.players[0].stats.total_runs
+                        else:
+                            completed_runs = run_verify.players.stats.total_runs
+
+                        await self.pb_channel.send(
+                            embed=EmbedCreator.approved_embed(
+                                title=embed_data.embed_title,
+                                subcategory=run_verify.subcategory,
+                                url=run_verify.meta.url,
+                                player=embed_data.players,
+                                player_pfp=embed_data.player_pfp,
+                                placement=run_verify.place,
+                                lb_count=run_verify.lb_count,
+                                points=run_verify.meta.points,
+                                platform=run_verify.system.platform.name,
+                                time=embed_data.time,
+                                time_delta=embed_data.delta,
+                                completed_runs=completed_runs,
+                                run_type=embed_data.run_type,
+                                description=run_verify.description,
+                                thumbnail=run_verify.game.boxart,
+                                approval=run_verify.status.v_date,
+                                obsolete=run_verify.status.obsolete,
+                            )
                         )
-                    )
 
-                    embed_msg = await self.submit_channel.fetch_message(
-                        self.submissions[run]["submission"]
-                    )
-                    await embed_msg.delete()
-
-                    if self.submissions[run]["role"]:
-                        role_msg = await self.submit_channel.fetch_message(
-                            self.submissions[run]["role"]
+                        embed_msg = await self.submit_channel.fetch_message(
+                            self.submissions[run]["submission"]
                         )
-                        await role_msg.delete()
+                        await embed_msg.delete()
 
-                    remove_run.append(run)
-                elif run_verify.data["status"]["vid_status"] == "rejected":
+                        if self.submissions[run]["role"]:
+                            role_msg = await self.submit_channel.fetch_message(
+                                self.submissions[run]["role"]
+                            )
+                            await role_msg.delete()
+
+                        remove_run.append(run)
+
+                        if embed_data.warnings:
+                            await self.submit_channel.send(
+                                content=(
+                                    "The following submission has warnings.\n"
+                                    f"**[Submission Link]({run_verify.meta.url}) -- Warnings: **"
+                                    f"{' | '.join(embed_data.warnings)} \n"
+                                    "Once fixed on SRC, a Discord Mod or Admin needs to run: \n"
+                                    f"`/thpsrun run import {run_verify.meta.url}`"
+                                    "*Remove embed once approved or if a false positive.*"
+                                ),
+                            )
+                elif run_verify.status.vid_status == "rejected":
                     embed_msg = await self.submit_channel.fetch_message(
                         self.submissions[run]["submission"]
                     )
@@ -239,17 +257,26 @@ class THPSRunCog(
             )
 
             if get_player.ok and get_player.data:
+                player_data = THPSRunPBs.model_validate(get_player.data)
+                main_runs = None
+                il_runs = None
+                if player_data.main_runs:
+                    main_runs = player_data.main_runs[:3]
+
+                if player_data.il_runs:
+                    il_runs = player_data.il_runs[:3]
+
                 await interaction.response.send_message(
                     embed=EmbedCreator.player_embed(
-                        player=get_player.data["name"],
-                        nickname=get_player.data["nickname"],
-                        player_pfp=get_player.data["pfp"],
-                        total_points=get_player.data["stats"]["total_pts"],
-                        main_points=get_player.data["stats"]["main_pts"],
-                        il_points=get_player.data["stats"]["il_pts"],
-                        total_runs=get_player.data["stats"]["total_runs"],
-                        recent_main_runs=get_player.data["main_runs"][:3],
-                        recent_il_runs=get_player.data["il_runs"][:3],
+                        player=player_data.name,
+                        nickname=player_data.nickname,
+                        player_pfp=player_data.pfp,
+                        total_points=player_data.stats.total_pts,
+                        main_points=player_data.stats.main_pts,
+                        il_points=player_data.stats.il_pts,
+                        total_runs=player_data.stats.total_runs,
+                        recent_main_runs=main_runs,
+                        recent_il_runs=il_runs,
                     )
                 )
             else:
@@ -309,12 +336,22 @@ class THPSRunCog(
         ]
     )
     async def thpsrun_run(
-        self, interaction: Interaction, action: app_commands.Choice[str], url: str
-    ):
+        self,
+        interaction: Interaction,
+        action: app_commands.Choice[str],
+        url: str,
+    ) -> None:
         """Show or import a run from or to the thps.run API."""
         if action.value == "show":
             if "speedrun.com" in url:
-                url = THPSRunHelper.get_run_id(url.lower())
+                run_id = THPSRunHelper.get_run_id(url.lower())
+                if run_id is None:
+                    await interaction.followup.send(
+                        content="Invalid Speedrun.com URL format.",
+                        ephemeral=True,
+                    )
+                    return
+                url = run_id
 
             get_run = await AIOHTTPHelper.get(
                 url=f"{THPS_RUN_API}/runs/{url}?embed=game,players,record,platform",
@@ -322,32 +359,38 @@ class THPSRunCog(
             )
 
             if get_run.ok and get_run.data:
-                if get_run.data["status"]["vid_status"] == "verified":
-                    embed_data = THPSRunHelper.get_run_data(get_run.data)
+                run_data = THPSRunRuns.model_validate(get_run.data)
 
-                    await interaction.response.send_message(
-                        embed=EmbedCreator.approved_embed(
-                            title=embed_data.embed_title,
-                            subcategory=get_run.data["subcategory"],
-                            url=get_run.data["meta"]["url"],
-                            player=embed_data.players,
-                            player_pfp=embed_data.player_pfp,
-                            placement=get_run.data["place"],
-                            lb_count=get_run.data["lb_count"],
-                            points=get_run.data["meta"]["points"],
-                            platform=get_run.data["system"]["platform"]["name"],
-                            time=embed_data.time,
-                            time_delta=embed_data.delta,
-                            completed_runs=get_run.data["players"]["stats"][
-                                "total_runs"
-                            ],
-                            run_type=embed_data.run_type,
-                            description=get_run.data["description"],
-                            thumbnail=get_run.data["game"]["boxart"],
-                            approval=get_run.data["status"]["v_date"],
-                            obsolete=get_run.data["status"]["obsolete"],
+                if run_data.status.vid_status == "verified":
+                    embed_data = THPSRunHelper.get_run_data(run_data)
+
+                    if isinstance(run_data.players, list):
+                        completed_runs = run_data.players[0].stats.total_runs
+                    else:
+                        completed_runs = run_data.players.stats.total_runs
+
+                    if embed_data:
+                        await interaction.response.send_message(
+                            embed=EmbedCreator.approved_embed(
+                                title=embed_data.embed_title,
+                                subcategory=run_data.subcategory,
+                                url=run_data.meta.url,
+                                player=embed_data.players,
+                                player_pfp=embed_data.player_pfp,
+                                placement=run_data.place,
+                                lb_count=run_data.lb_count,
+                                points=run_data.meta.points,
+                                platform=run_data.system.platform.name,
+                                time=embed_data.time,
+                                time_delta=embed_data.delta,
+                                completed_runs=completed_runs,
+                                run_type=embed_data.run_type,
+                                description=run_data.description,
+                                thumbnail=run_data.game.boxart,
+                                approval=run_data.status.v_date,
+                                obsolete=run_data.status.obsolete,
+                            )
                         )
-                    )
                 else:
                     await interaction.response.send_message(
                         content="Run is still awaiting verification.",
@@ -365,7 +408,14 @@ class THPSRunCog(
             await interaction.response.defer(thinking=True, ephemeral=True)
 
             if "speedrun.com" in url:
-                url = THPSRunHelper.get_run_id(url.lower())
+                run_id = THPSRunHelper.get_run_id(url.lower())
+                if run_id is None:
+                    await interaction.followup.send(
+                        content="Invalid Speedrun.com URL format.",
+                        ephemeral=True,
+                    )
+                    return
+                url = run_id
 
             post_run = await AIOHTTPHelper.post(
                 url=f"{THPS_RUN_API}/runs/{url}",

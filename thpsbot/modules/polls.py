@@ -111,8 +111,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
-            self.poll_group,
-            type=app_commands.Group,
+            self.poll_group.name,
             guild=discord.Object(id=GUILD_ID),
         )
 
@@ -223,6 +222,113 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
     poll_group = app_commands.Group(
         name="poll", description="Creates or modifies the behavior of a poll."
     )
+
+    @poll_group.command(
+        name="public",
+        description="Creates a new public (reaction) poll with up to 5 choices.",
+    )
+    @app_commands.describe(
+        message="Set the message of the poll.",
+        time="If used and given a timestamp, will mention you upon time being met.",
+        o1_emoji="Emoji for the first option.",
+        o1_name="What does this emoji represent for option1?",
+        o2_emoji="Emoji for the second option.",
+        o2_name="What does this emoji represent for option2?",
+        o3_emoji="Emoji for the third option.",
+        o3_name="What does this emoji represent for option3?",
+        o4_emoji="Emoji for the fourth option.",
+        o4_name="What does this emoji represent for option4?",
+        o5_emoji="Emoji for the fifth option.",
+        o5_name="What does this emoji represent for option5?",
+    )
+    async def public_poll(
+        self,
+        interaction: Interaction,
+        message: str,
+        time: str | None,
+        o1_emoji: str,
+        o1_name: str,
+        o2_emoji: str,
+        o2_name: str,
+        o3_emoji: str | None,
+        o3_name: str | None,
+        o4_emoji: str | None,
+        o4_name: str | None,
+        o5_emoji: str | None,
+        o5_name: str | None,
+    ) -> None:
+        """Creates a new public (reaction) poll with up to 5 choices"""
+        await interaction.response.defer(thinking=True, ephemeral=True)
+
+        if time:
+            matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
+            if not matched_time:
+                await interaction.followup.send(
+                    f"{time} is not a valid timestamp. Use https://hammertime.cyou "
+                    + "for an easier conversion. Use America/New York as timezone.",
+                    ephemeral=True,
+                )
+                return
+
+            timestamp = int(matched_time.group(1))
+            utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            local_time = utc_dt.astimezone(zoneinfo.ZoneInfo("America/New_York"))
+            long_tag = f"<t:{timestamp}:F>"
+
+        poll = await interaction.channel.send(
+            embed=discord.Embed(
+                title=f"Poll: {message}",
+            ),
+        )
+        embed = poll.embeds[0]
+
+        options: list[tuple[str | None, str | None]] = [
+            (o1_emoji, o1_name),
+            (o2_emoji, o2_name),
+            (o3_emoji, o3_name),
+            (o4_emoji, o4_name),
+            (o5_emoji, o5_name),
+        ]
+
+        labeler: list = []
+        reactions: dict[dict, str] = {}
+        for emoji, label in options:
+            if emoji is None:
+                continue
+
+            await poll.add_reaction(emoji)
+
+            label = label or "---"
+            reactions[emoji] = label
+            labeler.append(f"{emoji} = **{label}**\n")
+
+        if time:
+            embed.description = f"This poll ends at {long_tag}!\n"
+            embed.description = embed.description + "\n".join(labeler)
+
+            self.reminder_list.update(
+                {
+                    str(poll.id): {
+                        "type": "public",
+                        "time": str(local_time),
+                        "channel": interaction.channel.id,
+                        "author": interaction.user.id,
+                        "reactions": reactions,
+                    }
+                }
+            )
+        else:
+            embed.description = "\n".join(labeler)
+
+        await poll.edit(embed=embed)
+
+        JsonHelper.save_json(self.reminder_list, "json/reminders.json")
+
+        await interaction.followup.send(
+            content="Poll created successfully!\n"
+            + f"Use `/poll edit {poll.id}` to modify the time if needed!",
+            ephemeral=True,
+        )
 
     @poll_group.command(
         name="private",

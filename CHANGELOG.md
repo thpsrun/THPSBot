@@ -1,7 +1,7 @@
 ## v3.6
 ###### January 26, 2026
-*   Reworked error handling works within the bot to (hopefully) reduce errors being sent to Sentry.
-
+#TODO: RUN AGAINST THPS.RUN DEV BRANCH WITH DATABASE!!
+### Added
 *   Added Warnings to submission embeds. The following scenarios will raise a warning label on submission embeds:
     *   The run's video is from Twitch and not YouTube.
     *   The run's timing method is not consistent to the game's default.
@@ -10,8 +10,21 @@
     *   This is more to help admins or mods catch issues.
     *   There is an additional note to ask a moderator to run the `/thpsrun run import <url>` command.
 *   Added Pydantic models.
+*   Added new dropdown menu for adding or removing roles.
+    *   New commands are added:
+        *   `/reaction add [value] [emoji] [role]` (ADMIN)
+        *   `/reaction remove [value]` (ADMIN)
+        *   `/reaction embed` (ADMIN)
 
+### Reworks
+*   Reworked error handling works within the bot to (hopefully) reduce errors being sent to Sentry.
 *   Re-added public polls.
+
+### Removed
+*   Removed old reaction system.
+
+### Fixes
+*   Fixed an issue where the Discord API would still crash the bot in specific situations.
 * * *
 
 ## v3.5.2

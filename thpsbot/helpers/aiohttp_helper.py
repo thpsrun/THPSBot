@@ -69,7 +69,7 @@ class AIOHTTPHelper:
             async with cls._session.get(
                 url,
                 headers=headers,
-                timeout=timeout,
+                timeout=aiohttp.ClientTimeout(total=timeout),
             ) as response:
                 cls._host_failures[host] = 0
 
@@ -117,7 +117,7 @@ class AIOHTTPHelper:
                 url,
                 json=data,
                 headers=headers,
-                timeout=timeout,
+                timeout=aiohttp.ClientTimeout(total=timeout),
             ) as response:
                 status = response.status
                 response_data = None
@@ -142,7 +142,7 @@ class AIOHTTPHelper:
                 url,
                 json=data,
                 headers=headers,
-                timeout=timeout,
+                timeout=aiohttp.ClientTimeout(total=timeout),
             ) as response:
                 status = response.status
                 response_data = None

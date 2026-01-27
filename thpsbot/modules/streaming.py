@@ -78,10 +78,10 @@ class StreamingCog(
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
-            self.stream_group,
-            type=app_commands.Group,
+            self.stream_group.name,
             guild=discord.Object(id=GUILD_ID),
         )
+
         await self.ttv_client.close()
 
         self.stream_loop.cancel()
@@ -122,63 +122,67 @@ class StreamingCog(
                             user = await first(
                                 self.ttv_client.get_users(logins=[stream.user_login])
                             )
-                            try:
-                                self.live[user.display_name]
-                            except (KeyError, TypeError):
-                                if (
-                                    "NoSRL".casefold()
-                                    not in (
-                                        tag.casefold() for tag in (stream.tags or [])
-                                    )
-                                    and entry.get("ex_stream") is False
-                                ):
-                                    thumbnail = stream.thumbnail_url.replace(
-                                        "{width}", "1280"
-                                    ).replace("{height}", "720")
+                            if user:
+                                try:
+                                    self.live[user.display_name]
+                                except (KeyError, TypeError):
+                                    if (
+                                        "NoSRL".casefold()
+                                        not in (
+                                            tag.casefold()
+                                            for tag in (stream.tags or [])
+                                        )
+                                        and entry.get("ex_stream") is False
+                                    ):
+                                        thumbnail = stream.thumbnail_url.replace(
+                                            "{width}", "1280"
+                                        ).replace("{height}", "720")
 
-                                    e_thumbnail = (
-                                        thumbnail + "?rand=" + str(int(time.time()))
-                                    )
+                                        e_thumbnail = (
+                                            thumbnail + "?rand=" + str(int(time.time()))
+                                        )
 
-                                    embed, view = EmbedCreator.twitch_embed(
-                                        title=stream.title,
-                                        thps_user=entry.get("id"),
-                                        stream_name=user.display_name,
-                                        stream_game=stream.game_name,
-                                        twitch_pfp=user.profile_image_url,
-                                        thumbnail=e_thumbnail,
-                                        src_username=entry.get("name"),
-                                    )
+                                        embed, view = EmbedCreator.twitch_embed(
+                                            title=stream.title,
+                                            thps_user=entry.get("id"),
+                                            stream_name=user.display_name,
+                                            stream_game=stream.game_name,
+                                            twitch_pfp=user.profile_image_url,
+                                            thumbnail=e_thumbnail,
+                                            src_username=entry.get("name"),
+                                        )
 
-                                    embed_stream = await self.stream_channel.send(
-                                        embed=embed, view=view
-                                    )
+                                        embed_stream = await self.stream_channel.send(
+                                            embed=embed, view=view
+                                        )
 
-                                    # try:
-                                    #     await embed_stream.publish()
-                                    # except discord.HTTPException:
-                                    #     pass
+                                        # try:
+                                        #     await embed_stream.publish()
+                                        # except discord.HTTPException:
+                                        #     pass
 
-                                    role_msg = await self.stream_channel.send(
-                                        f"<@&{self.stream_role}>"
-                                    )
+                                        role_msg = await self.stream_channel.send(
+                                            f"<@&{self.stream_role}>"
+                                        )
 
-                                    self.live.update(
-                                        {
-                                            f"{user.display_name}": {
-                                                "user_id": user.id,
-                                                "thpsrun_id": entry.get("id"),
-                                                "src_username": entry.get("name"),
-                                                "embed": embed_stream.id,
-                                                "role": role_msg.id,
-                                                "game": stream.game_name,
-                                                "thumbnail": thumbnail,
-                                                "pfp": user.profile_image_url,
-                                                "started_at": str(stream.started_at),
-                                                "check": 0,
+                                        self.live.update(
+                                            {
+                                                f"{user.display_name}": {
+                                                    "user_id": user.id,
+                                                    "thpsrun_id": entry.get("id"),
+                                                    "src_username": entry.get("name"),
+                                                    "embed": embed_stream.id,
+                                                    "role": role_msg.id,
+                                                    "game": stream.game_name,
+                                                    "thumbnail": thumbnail,
+                                                    "pfp": user.profile_image_url,
+                                                    "started_at": str(
+                                                        stream.started_at
+                                                    ),
+                                                    "check": 0,
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
 
             remove_stream = []
             for user, messages in self.live.items():
@@ -298,23 +302,25 @@ class StreamingCog(
             if name not in self.ttv_games:
                 game = await first(self.ttv_client.get_games(names=[name]))
 
-                if game.id not in self.stream_game_lookup:
-                    self.stream_game_lookup.append(game.id)
-                    self.ttv_games.append(game.name)
+                if game:
+                    if game.id not in self.stream_game_lookup:
+                        self.stream_game_lookup.append(game.id)
+                        self.ttv_games.append(game.name)
 
-                    JsonHelper.save_json(
-                        self.stream_game_lookup, "json/ttvgame_ids.json"
-                    )
-                    JsonHelper.save_json(self.ttv_games, "json/ttvgames.json")
+                        JsonHelper.save_json(
+                            self.stream_game_lookup, "json/ttvgame_ids.json"
+                        )
+                        JsonHelper.save_json(self.ttv_games, "json/ttvgames.json")
 
-                    await interaction.followup.send(
-                        f"{name} has been added to the lookup table.", ephemeral=True
-                    )
-                else:
-                    await interaction.followup.send(
-                        f"{name} was not added. That game's Twitch ID already exists.",
-                        ephemeral=True,
-                    )
+                        await interaction.followup.send(
+                            f"{name} has been added to the lookup table.",
+                            ephemeral=True,
+                        )
+                    else:
+                        await interaction.followup.send(
+                            f"{name} was not added. That game's Twitch ID already exists.",
+                            ephemeral=True,
+                        )
             else:
                 await interaction.followup.send(
                     f"{name} was not added. Did you spell it right? Does the category exist?",
