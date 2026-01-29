@@ -61,13 +61,16 @@ class PrivatePollButton(discord.ui.Button):
         self.choice = label
 
     async def callback(self, interaction: Interaction):
+        assert isinstance(self.view, PrivatePollView)
         view: PrivatePollView = self.view
         uid = interaction.user.id
-        choice = self.label
+        choice = self.choice
         prev = view.votes.get(uid)
         view.votes[uid] = choice
 
         store: dict[str, dict] = JsonHelper.load_json("json/reminders.json")
+        if interaction.message is None:
+            return
         poll_data = store.get(str(interaction.message.id))
         if poll_data:
             poll_data["votes"][str(uid)] = choice
@@ -120,11 +123,9 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
     @tasks.loop(seconds=30)
     @TaskHelper.safe_task
     async def check_reminders(self) -> None:
-        """Checks poll statuses every 30 seconds."""
-        await self._check_reminders_impl()
+        await self.reminders()
 
-    async def _check_reminders_impl(self) -> None:
-        """Implementation of check_reminders."""
+    async def reminders(self) -> None:
         if len(self.reminder_list) == 0:
             return
 
@@ -159,16 +160,20 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
                 if metadata["type"] == "private":
                     view = self.active_private_polls.pop(int(reminder), None)
+                    if view is None:
+                        remove_polls.append(reminder)
+                        continue
                     report = view.summary()
                     view.stop()
                 else:
                     react_counts: dict[str, dict] = {}
                     for reaction in message.reactions:
-                        if reaction.emoji in self.reminder_list[reminder]["reactions"]:
+                        emoji_str = str(reaction.emoji)
+                        if emoji_str in self.reminder_list[reminder]["reactions"]:
                             count = reaction.count - (1 if reaction.me else 0)
-                            react_counts[reaction.emoji] = {
+                            react_counts[emoji_str] = {
                                 "name": self.reminder_list[reminder]["reactions"][
-                                    reaction.emoji
+                                    emoji_str
                                 ],
                                 "count": count,
                             }
@@ -240,6 +245,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         o4_name="What does this emoji represent for option4?",
         o5_emoji="Emoji for the fifth option.",
         o5_name="What does this emoji represent for option5?",
+        thread="Automatically create a discussion thread for this poll.",
     )
     async def public_poll(
         self,
@@ -256,9 +262,12 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         o4_name: str | None,
         o5_emoji: str | None,
         o5_name: str | None,
+        thread: bool = False,
     ) -> None:
-        """Creates a new public (reaction) poll with up to 5 choices"""
         await interaction.response.defer(thinking=True, ephemeral=True)
+
+        local_time: datetime | None = None
+        long_tag: str = ""
 
         if time:
             matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
@@ -275,6 +284,15 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             local_time = utc_dt.astimezone(zoneinfo.ZoneInfo("America/New_York"))
             long_tag = f"<t:{timestamp}:F>"
 
+        if interaction.channel is None or not isinstance(
+            interaction.channel, discord.TextChannel
+        ):
+            await interaction.followup.send(
+                "This command must be used in a text channel.",
+                ephemeral=True,
+            )
+            return
+
         poll = await interaction.channel.send(
             embed=discord.Embed(
                 title=f"Poll: {message}",
@@ -290,8 +308,8 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             (o5_emoji, o5_name),
         ]
 
-        labeler: list = []
-        reactions: dict[dict, str] = {}
+        labeler: list[str] = []
+        reactions: dict[str, str] = {}
         for emoji, label in options:
             if emoji is None:
                 continue
@@ -322,6 +340,15 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
         await poll.edit(embed=embed)
 
+        if thread:
+            discussion = await poll.create_thread(
+                name=f"{message} - Discussion",
+            )
+            embed.description = (
+                embed.description or ""
+            ) + f"\n[Discussion]({discussion.jump_url})"
+            await poll.edit(embed=embed)
+
         JsonHelper.save_json(self.reminder_list, "json/reminders.json")
 
         await interaction.followup.send(
@@ -342,6 +369,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         option3="What do you want to call the third option?",
         option4="What do you want to call the fourth option?",
         option5="What do you want to call the fifth option?",
+        thread="Automatically create a discussion thread for this poll.",
     )
     async def private_poll(
         self,
@@ -353,8 +381,8 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         option3: str | None,
         option4: str | None,
         option5: str | None,
+        thread: bool = True,
     ) -> None:
-        """Creates a new private (button) poll with up to 5 choices."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
@@ -376,9 +404,11 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
         view = PrivatePollView(options=options_content)
 
-        if interaction.channel is None:
+        if interaction.channel is None or not isinstance(
+            interaction.channel, discord.TextChannel
+        ):
             await interaction.followup.send(
-                "This command must be used in a channel.",
+                "This command must be used in a text channel.",
                 ephemeral=True,
             )
             return
@@ -393,6 +423,15 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
         if time:
             embed.description = f"The poll ends at {long_tag}!\n"
+            await poll.edit(embed=embed)
+
+        if thread:
+            discussion = await poll.create_thread(
+                name=f"{message} - Discussion",
+            )
+            embed.description = (
+                embed.description or ""
+            ) + f"\n[Discussion]({discussion.jump_url})"
             await poll.edit(embed=embed)
 
         self.active_private_polls[int(poll.id)] = view
@@ -432,7 +471,6 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         message_id: str,
         time: str,
     ) -> None:
-        """Changes the message's poll end time/date to what is given."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if not await is_admin_user(interaction.user, self.bot):
@@ -528,7 +566,6 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         interaction: Interaction,
         message_id: str,
     ) -> None:
-        """Force stops a poll early."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if not await is_admin_user(interaction.user, self.bot):

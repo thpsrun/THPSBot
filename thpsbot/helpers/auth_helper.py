@@ -8,8 +8,6 @@ if TYPE_CHECKING:
 
 
 def is_admin():
-    """Restricts commands to requiring to be in an admin or moderator role."""
-
     @check
     async def predicate(
         interaction: Interaction,
@@ -39,7 +37,6 @@ async def is_admin_user(
     user: Member | User,
     bot: "THPSBot",
 ) -> bool:
-    """Returns True if the user is the owner or has an admin/mod role."""
     if not isinstance(user, Member):
         return False
 

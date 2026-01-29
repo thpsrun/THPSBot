@@ -5,8 +5,14 @@ import discord
 from discord import Embed
 from dotenv import load_dotenv
 
-from thpsbot.helpers.config_helper import BOT, DEFAULT_IMG, THPS_RUN_API, TTV_TIMEOUT
-from thpsbot.models.thpsrun_api import THPSRunRuns
+from thpsbot.helpers.config_helper import (
+    BOT,
+    DEFAULT_IMG,
+    ENV,
+    THPS_RUN_API,
+    TTV_TIMEOUT,
+)
+from thpsbot.models import THPSRunGame, THPSRunRuns
 
 THPS_RUN = THPS_RUN_API.replace("/api", "")
 load_dotenv()
@@ -29,11 +35,9 @@ class EmbedCreator:
         completed_runs: int | None,
         run_type: str,
         description: str | None,
-        thumbnail: str | None,
-        approval: str,
+        approval: str | None,
         obsolete: bool,
     ) -> Embed:
-        """After approval, this embed would be ran to display the newly approved run."""
         if player_pfp:
             pfp = THPS_RUN + player_pfp.lstrip("srl")
         else:
@@ -43,10 +47,16 @@ class EmbedCreator:
             title=title,
             url=url,
             color=random.randint(0, 0xFFFFFF),
-            timestamp=datetime.fromisoformat(approval.replace("Z", "+00:00")),
         )
+        if approval:
+            embed.timestamp = datetime.fromisoformat(approval.replace("Z", "+00:00"))
 
-        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
+        if ENV == "primary":
+            embed.set_author(
+                name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
+            )
+        else:
+            embed.set_author(name=player, url="https://speedrun.com/")
 
         if not obsolete:
             embed.add_field(
@@ -59,7 +69,7 @@ class EmbedCreator:
 
         embed.description = f"{subcategory}\nTime: {time} ({run_type})"
 
-        if time_delta:
+        if time_delta and placement > 1:
             embed.add_field(name="WR [Delta]", value=time_delta, inline=True)
 
         if completed_runs:
@@ -67,9 +77,6 @@ class EmbedCreator:
 
         if description:
             embed.add_field(name="Comments", value=description[:1024], inline=False)
-
-        if thumbnail:
-            embed.set_thumbnail(url=thumbnail)
 
         return embed
 
@@ -82,11 +89,9 @@ class EmbedCreator:
         player_pfp: str | None,
         time: str,
         run_type: str,
-        thumbnail: str | None,
         submitted: str | None,
         warnings: list | None,
     ) -> Embed:
-        """This embed is used to showcase that an embed is in the queue from Speedrun.com."""
         if player_pfp:
             pfp = THPS_RUN + player_pfp.lstrip("srl")
         else:
@@ -101,13 +106,16 @@ class EmbedCreator:
         if submitted:
             embed.timestamp = datetime.fromisoformat(submitted.replace("Z", "+00:00"))
 
-        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
+        if ENV == "primary":
+            embed.set_author(
+                name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
+            )
+        else:
+            embed.set_author(name=player, url="https://speedrun.com/")
+
         embed.set_footer(text=BOT)
 
         embed.description = f"{subcategory}\nTime: {time} ({run_type})"
-
-        if thumbnail:
-            embed.set_thumbnail(url=thumbnail)
 
         if warnings:
             for warning in warnings:
@@ -131,11 +139,10 @@ class EmbedCreator:
         recent_main_runs: list[THPSRunRuns] | None,
         recent_il_runs: list[THPSRunRuns] | None,
     ) -> Embed:
-        """This embed is used to display players from the thps.run API."""
         if nickname:
-            title_name = f"{player} ({nickname})"
+            title_name = f"{player} ({nickname}) Statistics"
         else:
-            title_name = player
+            title_name = f"{player} Statistics"
 
         if player_pfp:
             pfp = THPS_RUN + player_pfp.lstrip("srl")
@@ -148,8 +155,13 @@ class EmbedCreator:
             timestamp=datetime.now(timezone.utc),
         )
 
-        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
-        embed.add_field(name="Stats", value="", inline=False)
+        if ENV == "primary":
+            embed.set_author(
+                name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
+            )
+        else:
+            embed.set_author(name=player, url="https://speedrun.com/")
+
         embed.add_field(name="Total Points", value=total_points, inline=True)
 
         if main_points:
@@ -177,18 +189,24 @@ class EmbedCreator:
                 if time_key is None:
                     continue
 
-                game = run.game.slug.upper()
-                subcat = run.subcategory
-                time = getattr(run.times, time_key)
-                url = run.meta.url
+                if isinstance(run.game, THPSRunGame):
+                    game = run.game.slug.upper()
+                    if "THPS34" == game:
+                        game = "THPS3+4"
+                    elif "THPS12" == game:
+                        game = "THPS1+2"
 
-                embed.add_field(
-                    name=run_number,
-                    value=f"[{game} - {subcat} in {time}]({url})",
-                    inline=False,
-                )
+                    subcat = run.subcategory
+                    time = getattr(run.times, time_key)
+                    url = run.meta.url
 
-                run_number += 1
+                    embed.add_field(
+                        name="",
+                        value=f"{run_number}. [{game} - {subcat} in {time}]({url})",
+                        inline=False,
+                    )
+
+                    run_number += 1
 
         if recent_il_runs and len(recent_il_runs) > 0:
             embed.add_field(name="Most Recent IL Runs", value="", inline=False)
@@ -200,18 +218,24 @@ class EmbedCreator:
                 if time_key is None:
                     continue
 
-                game = run.game.slug.upper()
-                subcat = run.subcategory
-                time = getattr(run.times, time_key)
-                url = run.meta.url
+                if isinstance(run.game, THPSRunGame):
+                    game = run.game.slug.upper()
+                    if "THPS34" == game:
+                        game = "THPS3+4"
+                    elif "THPS12" == game:
+                        game = "THPS1+2"
 
-                embed.add_field(
-                    name=run_number,
-                    value=f"[{game} - {subcat} in {time}]({url})",
-                    inline=False,
-                )
+                    subcat = run.subcategory
+                    time = getattr(run.times, time_key)
+                    url = run.meta.url
 
-                run_number += 1
+                    embed.add_field(
+                        name="",
+                        value=f"{run_number}. [{game} - {subcat} in {time}]({url})",
+                        inline=False,
+                    )
+
+                    run_number += 1
 
         return embed
 
@@ -225,7 +249,6 @@ class EmbedCreator:
         thumbnail: str,
         src_username: str,
     ) -> tuple[Embed, discord.ui.View]:
-        """This embed is used to display currently online livestreams."""
         if not twitch_pfp:
             twitch_pfp = DEFAULT_IMG
 
@@ -281,7 +304,6 @@ class EmbedCreator:
         started_at: str,
         archive_video: str | None,
     ) -> Embed:
-        """This embed is used to display currently online livestreams."""
         if not twitch_pfp:
             twitch_pfp = DEFAULT_IMG
 

@@ -57,7 +57,6 @@ class AwardsCog(
     @app_commands.describe(emoji="The emoji to use for marking messages.")
     @is_admin()
     async def setreaction(self, interaction: Interaction, emoji: str) -> None:
-        """Set the reaction emoji used to mark messages for awards."""
         self.awards_data["reaction"] = emoji
         AWARDS_LIST[ENV] = self.awards_data
         JsonHelper.save_json(AWARDS_LIST, "json/awards.json")
@@ -74,7 +73,6 @@ class AwardsCog(
     )
     @is_admin()
     async def export(self, interaction: Interaction) -> None:
-        """Export all marked messages to a JSON file."""
         marked = self.awards_data.get("marked_messages", {})
 
         if not marked:
@@ -146,7 +144,6 @@ class AwardsCog(
         description="Show current awards configuration and stats.",
     )
     async def status(self, interaction: Interaction) -> None:
-        """Show the current awards reaction and number of marked messages."""
         reaction = self.awards_data.get("reaction")
         marked_count = len(self.awards_data.get("marked_messages", {}))
 
@@ -178,7 +175,6 @@ class AwardsCog(
     async def _handle_award_reaction(
         self, payload: discord.RawReactionActionEvent
     ) -> None:
-        """Check if the reaction is the awards reaction and log the message."""
         award_reaction = self.awards_data.get("reaction")
         if not award_reaction:
             return

@@ -89,11 +89,9 @@ class StreamingCog(
     @tasks.loop(minutes=1)
     @TaskHelper.safe_task
     async def stream_loop(self) -> None:
-        """Checks livestream status of players every minute."""
         await self._stream_loop_impl()
 
     async def _stream_loop_impl(self) -> None:
-        """Implementation of stream_loop."""
         async with self.task_lock:
             player_list = await AIOHTTPHelper.get(
                 url=f"{THPS_RUN_API}/players/all?query=streams",
@@ -155,11 +153,6 @@ class StreamingCog(
                                         embed_stream = await self.stream_channel.send(
                                             embed=embed, view=view
                                         )
-
-                                        # try:
-                                        #     await embed_stream.publish()
-                                        # except discord.HTTPException:
-                                        #     pass
 
                                         role_msg = await self.stream_channel.send(
                                             f"<@&{self.stream_role}>"
@@ -258,11 +251,9 @@ class StreamingCog(
     @tasks.loop(minutes=60)
     @TaskHelper.safe_task
     async def check_twitch_names(self) -> None:
-        """Checks the names in the local JSON file to see if they are real Twitch games."""
         await self._check_twitch_names_impl()
 
     async def _check_twitch_names_impl(self) -> None:
-        """Implementation of check_twitch_names."""
         for ttv_game in self.ttv_games:
             async for game in self.ttv_client.get_games(names=[ttv_game]):
                 if game.id not in self.stream_game_lookup:
@@ -272,7 +263,6 @@ class StreamingCog(
 
     @stream_loop.before_loop
     async def before_status_loop(self) -> None:
-        """Check messages in the livestream channel before executing."""
         await self.check_twitch_names()
 
     ###########################################################################
@@ -295,7 +285,6 @@ class StreamingCog(
     async def stream_game(
         self, interaction: Interaction, action: app_commands.Choice[str], name: str
     ) -> None:
-        """Modifies the games looked up by THPSBot to the Twitch API."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if action.value == "add":

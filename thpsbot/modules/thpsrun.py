@@ -19,7 +19,14 @@ from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
 from thpsbot.helpers.task_helper import TaskHelper
 from thpsbot.helpers.thpsrun_helper import THPSRunHelper
-from thpsbot.models.thpsrun_api import THPSRunPBs, THPSRunRuns
+from thpsbot.models import (
+    THPSRunGame,
+    THPSRunPBs,
+    THPSRunPlayers,
+    THPSRunRuns,
+    THPSRunSystem,
+    THPSRunSystemPlatform,
+)
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -79,11 +86,9 @@ class THPSRunCog(
     @tasks.loop(seconds=30)
     @TaskHelper.safe_task
     async def check_approval_status(self):
-        """Checks the status of speedruns from thps.run every 30 seconds."""
-        await self._check_approval_status_impl()
+        await self.approval_status()
 
-    async def _check_approval_status_impl(self):
-        """Implementation of check_approval_status."""
+    async def approval_status(self):
         get_runs = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/runs/all?query=status"
             + "&embed=players,game,platform,record,platform",
@@ -98,11 +103,13 @@ class THPSRunCog(
                 except (KeyError, TypeError):
                     embed_data = THPSRunHelper.get_run_data(run)
 
-                    try:
+                    role_msg_id = None
+
+                    if isinstance(run.game, THPSRunGame):
                         role_id = int(self.bot.roles["mods"][run.game.slug.upper()])
                         role_msg = await self.submit_channel.send(f"<@&{role_id}>")
                         role_msg_id = role_msg.id
-                    except Exception:
+                    else:
                         role_msg_id = None
 
                     if embed_data:
@@ -115,7 +122,6 @@ class THPSRunCog(
                                 player_pfp=embed_data.player_pfp,
                                 time=embed_data.time,
                                 run_type=embed_data.run_type,
-                                thumbnail=run.game.boxart,
                                 submitted=run.date,
                                 warnings=embed_data.warnings,
                             )
@@ -147,8 +153,17 @@ class THPSRunCog(
                     if embed_data:
                         if isinstance(run_verify.players, list):
                             completed_runs = run_verify.players[0].stats.total_runs
-                        else:
+                        elif isinstance(run_verify.players, THPSRunPlayers):
                             completed_runs = run_verify.players.stats.total_runs
+                        else:
+                            completed_runs = 0
+
+                        if isinstance(run_verify.system, THPSRunSystem) and isinstance(
+                            run_verify.system.platform, THPSRunSystemPlatform
+                        ):
+                            platform_name = run_verify.system.platform.name
+                        else:
+                            platform_name = "PC"
 
                         await self.pb_channel.send(
                             embed=EmbedCreator.approved_embed(
@@ -160,13 +175,12 @@ class THPSRunCog(
                                 placement=run_verify.place,
                                 lb_count=run_verify.lb_count,
                                 points=run_verify.meta.points,
-                                platform=run_verify.system.platform.name,
+                                platform=platform_name,
                                 time=embed_data.time,
                                 time_delta=embed_data.delta,
                                 completed_runs=completed_runs,
                                 run_type=embed_data.run_type,
                                 description=run_verify.description,
-                                thumbnail=run_verify.game.boxart,
                                 approval=run_verify.status.v_date,
                                 obsolete=run_verify.status.obsolete,
                             )
@@ -249,7 +263,6 @@ class THPSRunCog(
         nickname: str | None,
         ex_stream: bool | None,
     ):
-        """Show or update information on a player from thps.run."""
         if action.value == "show":
             get_player = await AIOHTTPHelper.get(
                 url=f"{THPS_RUN_API}/players/{name}/pbs?embed=games",
@@ -341,7 +354,6 @@ class THPSRunCog(
         action: app_commands.Choice[str],
         url: str,
     ) -> None:
-        """Show or import a run from or to the thps.run API."""
         if action.value == "show":
             if "speedrun.com" in url:
                 run_id = THPSRunHelper.get_run_id(url.lower())
@@ -366,10 +378,19 @@ class THPSRunCog(
 
                     if isinstance(run_data.players, list):
                         completed_runs = run_data.players[0].stats.total_runs
-                    else:
+                    elif isinstance(run_data.players, THPSRunPlayers):
                         completed_runs = run_data.players.stats.total_runs
+                    else:
+                        completed_runs = 0
 
                     if embed_data:
+                        if isinstance(run_data.system, THPSRunSystem) and isinstance(
+                            run_data.system.platform, THPSRunSystemPlatform
+                        ):
+                            platform_name = run_data.system.platform.name
+                        else:
+                            platform_name = "PC"
+
                         await interaction.response.send_message(
                             embed=EmbedCreator.approved_embed(
                                 title=embed_data.embed_title,
@@ -380,13 +401,12 @@ class THPSRunCog(
                                 placement=run_data.place,
                                 lb_count=run_data.lb_count,
                                 points=run_data.meta.points,
-                                platform=run_data.system.platform.name,
+                                platform=platform_name,
                                 time=embed_data.time,
                                 time_delta=embed_data.delta,
                                 completed_runs=completed_runs,
                                 run_type=embed_data.run_type,
                                 description=run_data.description,
-                                thumbnail=run_data.game.boxart,
                                 approval=run_data.status.v_date,
                                 obsolete=run_data.status.obsolete,
                             )
@@ -426,7 +446,7 @@ class THPSRunCog(
             if post_run.ok:
                 await interaction.followup.send(
                     content="Run successfully submitted to the thps.run API!\n"
-                    + f"Use `/run show {url}`to view it!",
+                    + f"Use `/thpsrun show {url}`to view it!",
                     ephemeral=True,
                 )
             else:

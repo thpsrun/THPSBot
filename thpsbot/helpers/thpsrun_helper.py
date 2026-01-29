@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from thpsbot.models.thpsrun_api import THPSRunRuns
+from thpsbot.models import THPSRunGame, THPSRunPlayers, THPSRunRuns
 
 
 @dataclass
@@ -21,7 +21,6 @@ class THPSRunHelper:
     def get_run_id(
         url: str,
     ) -> str | None:
-        """Ensures that either `www.speedrun.com` or `speedrun.com` is used and grabs the run ID."""
         pattern = r"^(https?:\/\/)?(www\.)?speedrun\.com\/[^\/]+\/runs?\/([a-zA-Z0-9]+)"
         match = re.match(pattern, url)
         return match.group(3) if match else None
@@ -42,8 +41,9 @@ class THPSRunHelper:
     def get_run_data(
         data: THPSRunRuns,
     ) -> THPSRunHelperResponse | None:
-        """Function that consolidates the retrevial of information from the thps.run API JSON."""
-        embed_title = f"{data.game.name}"
+        embed_title = (
+            data.game.name if isinstance(data.game, THPSRunGame) else data.game
+        )
         warnings = []
 
         if data.level:
@@ -61,9 +61,12 @@ class THPSRunHelper:
         if isinstance(data.players, list):
             players = ", ".join(player.name for player in data.players)
             player_pfp = data.players[0].pfp
-        else:
+        elif isinstance(data.players, THPSRunPlayers):
             players = data.players.name
             player_pfp = data.players.pfp
+        else:
+            players = ""
+            player_pfp = ""
 
         time_key_map: dict[str, tuple[str, str]] = {
             "realtime": ("time_secs", "RTA"),
@@ -79,8 +82,8 @@ class THPSRunHelper:
         time_key, run_type = time_info
         run_time = THPSRunHelper.format_time(getattr(data.times, time_key))
 
-        if data.record:
-            if data.id is not data.record.id:
+        if isinstance(data.record, THPSRunRuns):
+            if data.id != data.record.id:
                 record_time = getattr(data.record.times, time_key)
                 pb_time = getattr(data.times, time_key)
 
@@ -102,26 +105,29 @@ class THPSRunHelper:
             warnings.append("Non-YouTube Video Detected")
 
         # Checks if the game expects a timing method but the run is missing that time.
-        expected_time_method = (
-            data.game.idefaulttime if data.level else data.game.defaulttime
-        )
-        expected_time_info = time_key_map.get(expected_time_method)
-        if expected_time_info:
-            expected_time_key, expected_label = expected_time_info
-            if getattr(data.times, expected_time_key) is None:
-                warnings.append(f"Missing Expected Time ({expected_label})")
+        if isinstance(data.game, THPSRunGame):
+            expected_time_method = (
+                data.game.idefaulttime if data.level else data.game.defaulttime
+            )
+            expected_time_info = time_key_map.get(expected_time_method)
+            if expected_time_info:
+                expected_time_key, expected_label = expected_time_info
+                if getattr(data.times, expected_time_key) is None:
+                    warnings.append(f"Missing Expected Time ({expected_label})")
 
-        # For ILs, checks if extra time fields are populated beyond the expected idefaulttime.
-        if data.level:
-            il_time_info = time_key_map.get(data.game.idefaulttime)
-            if il_time_info:
-                il_time_key, _ = il_time_info
-                extra_times = []
-                for _, (key, label) in time_key_map.items():
-                    if key != il_time_key and getattr(data.times, key) is not None:
-                        extra_times.append(label)
-                if extra_times:
-                    warnings.append(f"IL Has Extra Timings: {', '.join(extra_times)}")
+            # For ILs, checks if extra time fields are populated beyond the expected idefaulttime.
+            if data.level:
+                il_time_info = time_key_map.get(data.game.idefaulttime)
+                if il_time_info:
+                    il_time_key, _ = il_time_info
+                    extra_times = []
+                    for _, (key, label) in time_key_map.items():
+                        if key != il_time_key and getattr(data.times, key) != 0:
+                            extra_times.append(label)
+                    if extra_times:
+                        warnings.append(
+                            f"IL Has Extra Timings: {', '.join(extra_times)}"
+                        )
 
         return THPSRunHelperResponse(
             embed_title=embed_title,

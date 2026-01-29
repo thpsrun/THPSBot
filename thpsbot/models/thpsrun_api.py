@@ -207,7 +207,7 @@ class THPSRunSystem(BaseModel):
         emulated (bool): When true, the run is on an approved emulator.
     """
 
-    platform: THPSRunSystemPlatform
+    platform: str | THPSRunSystemPlatform
     emulated: bool
 
 
@@ -223,7 +223,7 @@ class THPSRunStatus(BaseModel):
 
     vid_status: str
     approver: str | None = None
-    v_date: str
+    v_date: str | None = None
     obsolete: bool
 
 
@@ -258,21 +258,21 @@ class THPSRunRuns(BaseModel):
     Arguments:
         id (str): Unique ID of the run.
         runtype (str): Marks whether the run is full-game (`main`) or an IL (`il`).
-        game (THPSRunGame): The embedded game information on a speedrun.
-        category (THPSRunCategory): The embedded category information on a speedrun.
-        level (THPSRunLevel): The embedded level information on a speedrun.
+        game (str | THPSRunGame): The embedded game information on a speedrun.
+        category (str | THPSRunCategory): The embedded category information on a speedrun.
+        level (str | THPSRunLevel): The embedded level information on a speedrun.
         subcategory (str): Full name of the subcategory of the speedrun.
         place (int): If not obsolete, the place on the leaderboard the run is in.
         lb_count (int): The returned value of how many approved and non-obsolete runs exist on that
             run's leaderboard.
-        players (THPSRunPlayers): The embedded player information on a speedrun.
+        players (str | THPSRunPlayers): The embedded player information on a speedrun.
         date (str | None): The date the run was submitted to Speedrun.com.
         record (THPSRunRuns): The embedded record information on a speedrun.
         times (THPSRunTimes): Embedded information about the run's timings.
         system (THPSRunSystem): Embedded information about the run's platform.
         status (THPSRunStatus): Embedded information about the run's status.
         videos (THPSRunVideos): Embedded information about the run's videos and archives.
-        variables (dict[str, THPSRunVariable] | None): Either the unique
+        variables (dict[str, str] | dict[str, THPSRunVariable] | None): Either the unique
             variable:value ID pairs or its embedded information.
         meta (THPSRunMeta): Embedded information about the run's meta information.
         description (str | None): The run's comments from the runner.
@@ -280,22 +280,32 @@ class THPSRunRuns(BaseModel):
 
     id: str
     runtype: str
-    game: THPSRunGame
-    category: THPSRunCategory
-    level: THPSRunLevel
+    game: str | THPSRunGame
+    category: str | THPSRunCategory
+    level: str | THPSRunLevel | None = None
     subcategory: str
     place: int
     lb_count: int
-    players: THPSRunPlayers | List[THPSRunPlayers]
+    players: str | THPSRunPlayers | List[THPSRunPlayers]
     date: str | None = None
-    record: THPSRunRuns
+    record: str | THPSRunRuns | None = None
     times: THPSRunTimes
-    system: THPSRunSystem
+    system: str | THPSRunSystem
     status: THPSRunStatus
     videos: THPSRunVideos
-    variables: dict[str, THPSRunVariable] | None = None
+    variables: dict[str, str] | dict[str, THPSRunVariable] | None = None
     meta: THPSRunMeta
     description: str | None = None
+
+
+class THPSRunNewRuns(BaseModel):
+    """Additional model that handles the new runs brought by thps.run.
+
+    Arguments:
+        new_runs (List[THPSRunRuns]): List of new speedruns within a game's endpoint.
+    """
+
+    new_runs: List[THPSRunRuns]
 
 
 # PERSONAL BEST MODEL #

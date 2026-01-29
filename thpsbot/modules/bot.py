@@ -53,13 +53,11 @@ class ActivityCog(
     @tasks.loop(minutes=60)
     @TaskHelper.safe_task
     async def status_loop(self) -> None:
-        """Changes the bot's status every 60 minutes."""
         game = Game(random.choice(self.gameslist))
         await self.bot.change_presence(activity=game, status=Status.online)
 
     @status_loop.before_loop
     async def before_status_loop(self) -> None:
-        """Changes the bot's status upon initialization."""
         await self.bot.wait_until_ready()
         try:
             game = Game(random.choice(self.gameslist))
@@ -70,7 +68,6 @@ class ActivityCog(
     @tasks.loop(hours=24)
     @TaskHelper.safe_task
     async def pfp_change(self) -> None:
-        """Changes the bot's profile picture every 24 hours."""
         if ENV == "primary" and self.bot.user:
             pfp = random.choice(os.listdir("pfps/"))
 
@@ -79,7 +76,6 @@ class ActivityCog(
 
     @pfp_change.before_loop
     async def before_pfp_change(self) -> None:
-        """Changes the bot's profile picture upon initialization."""
         if ENV == "primary":
             await self.bot.wait_until_ready()
             if not self.bot.user:
@@ -105,7 +101,6 @@ class ActivityCog(
         description="See if the bot is offline and responding properly!",
     )
     async def ping(self, interaction: Interaction) -> None:
-        """See if the bot is offline and responding properly!"""
         await interaction.response.send_message(
             f"Hello, {interaction.user.mention}! If you are seeing this, I am online! "
             f"If something is broken, blame Packle.",
@@ -117,7 +112,6 @@ class ActivityCog(
         description="Reload all modules loaded into THPSBot!",
     )
     async def reload(self, interaction: Interaction) -> None:
-        """Reload all modules loaded into THPSBot!"""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         extension_names = list(self.bot.extensions.keys())
@@ -165,7 +159,6 @@ class ActivityCog(
         status: str | None,
         force: bool | None,
     ) -> None:
-        """Adds, removes, or force changes statuses for THPSBot."""
         if action.value == "add":
             if not status:
                 await interaction.response.send_message(
@@ -271,7 +264,6 @@ class ActivityCog(
         image_url: str | None,
         pfp: str | None,
     ) -> None:
-        """Adds or force change profile pictures for THPSBot."""
         await interaction.response.defer(
             thinking=True,
             ephemeral=True,
@@ -319,6 +311,9 @@ class ActivityCog(
                         timeout=10,
                     )
                     new_filename = msg.content
+                    if ".." in new_filename:
+                        raise Exception("Illegal filename detected.")
+
                     await msg.delete()
 
                     if response.data is not None:

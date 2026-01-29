@@ -11,14 +11,6 @@ F = TypeVar("F", bound=Callable[..., Any])
 class TaskHelper:
     @staticmethod
     def safe_task(func: F) -> F:
-        """Custom decorator that handles common errors within Discord.py.
-
-        Exceptions:
-            DiscordServerError: Warning log, retry next loop.
-            TimeoutError: Warning log, retry next loop.
-            CommandNotFound: Warning log.
-        """
-
         @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
             task_name = func.__name__

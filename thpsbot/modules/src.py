@@ -7,6 +7,7 @@ from discord.ext.commands import Cog
 from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.config_helper import THPS_RUN_API
 from thpsbot.helpers.task_helper import TaskHelper
+from thpsbot.models import SRCNewRuns, THPSRunNewRuns
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -34,10 +35,9 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
     @tasks.loop(minutes=1)
     @TaskHelper.safe_task
     async def src_check(self) -> None:
-        await self._src_check_impl()
+        await self.src()
 
-    async def _src_check_impl(self) -> None:
-        """Implementation of src_check."""
+    async def src(self) -> None:
         game_list = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/games/all",
             headers=self.bot.thpsrun_header,
@@ -45,25 +45,28 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
 
         if not game_list.ok:
             return
+        elif game_list.data:
+            for game in game_list.data:
+                src_check = await AIOHTTPHelper.get(
+                    url=f"https://speedrun.com/api/v1/runs?status=new&game={game['id']}",
+                    headers=self.bot.src_header,
+                )
 
-        for game in game_list.data:
-            src_check = await AIOHTTPHelper.get(
-                url=f"https://speedrun.com/api/v1/runs?status=new&game={game['id']}",
-                headers=self.bot.thpsrun_header,
-            )
+                if not src_check.ok:
+                    continue
 
-            if not src_check.ok:
-                continue
+                if src_check.data:
+                    runs = SRCNewRuns.model_validate(src_check.data)
 
-            run_ids = [run["id"] for run in src_check.data["data"]]
-            for run_id in run_ids:
-                if run_id not in self.local_src:
-                    await AIOHTTPHelper.post(
-                        url=f"{THPS_RUN_API}/runs/{run_id}",
-                        headers=self.bot.thpsrun_header,
-                        data=None,
-                    )
-                    self.local_src.append(run_id)
+                    run_ids = [run.id for run in runs.data]
+                    for run_id in run_ids:
+                        if run_id not in self.local_src:
+                            await AIOHTTPHelper.post(
+                                url=f"{THPS_RUN_API}/runs/{run_id}",
+                                headers=self.bot.thpsrun_header,
+                                data=None,
+                            )
+                            self.local_src.append(run_id)
 
         await asyncio.sleep(5)
 
@@ -75,37 +78,38 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
 
         if not runs_list.ok:
             return
-
-        for run in runs_list.data["new_runs"]:
-            run_check = await AIOHTTPHelper.get(
-                url=f"https://speedrun.com/api/v1/runs/{run['id']}",
-                headers=None,
-            )
-
-            if run_check.status == 404:
-                await AIOHTTPHelper.post(
-                    url=f"{THPS_RUN_API}/runs/{run['id']}",
-                    headers=self.bot.thpsrun_header,
-                    data=None,
+        elif runs_list.data:
+            runs = THPSRunNewRuns.model_validate(runs_list.data)
+            for run in runs.new_runs:
+                run_check = await AIOHTTPHelper.get(
+                    url=f"https://speedrun.com/api/v1/runs/{run.id}",
+                    headers=self.bot.src_header,
                 )
 
-                if run["id"] in self.local_src:
-                    self.local_src.remove(run["id"])
-            elif run_check.ok:
-                if run_check.data["data"]["status"]["status"] in [
-                    "verified",
-                    "rejected",
-                ]:
+                if run_check.status == 404:
                     await AIOHTTPHelper.post(
-                        url=f"{THPS_RUN_API}/runs/{run['id']}",
+                        url=f"{THPS_RUN_API}/runs/{run.id}",
                         headers=self.bot.thpsrun_header,
                         data=None,
                     )
 
-                    if run["id"] in self.local_src:
-                        self.local_src.remove(run["id"])
-                elif run_check.data["data"]["status"]["status"] == "new":
-                    if run["id"] not in self.local_src:
-                        self.local_src.append(run["id"])
-            else:
-                continue
+                    if run.id in self.local_src:
+                        self.local_src.remove(run.id)
+                elif run_check.ok:
+                    if run.status.vid_status in [
+                        "verified",
+                        "rejected",
+                    ]:
+                        await AIOHTTPHelper.post(
+                            url=f"{THPS_RUN_API}/runs/{run.id}",
+                            headers=self.bot.thpsrun_header,
+                            data=None,
+                        )
+
+                        if run.id in self.local_src:
+                            self.local_src.remove(run.id)
+                    elif run.status.vid_status == "new":
+                        if run.id not in self.local_src:
+                            self.local_src.append(run.id)
+                else:
+                    continue
