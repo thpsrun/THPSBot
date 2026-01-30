@@ -6,30 +6,47 @@ on:
       - main
       - dev
 
+concurrency:
+  group: deployment-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  deploy-flake8:
+  deploy-dev:
     if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: dev
 
       - name: "Setup Python Environment"
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      
-      - name: Install Flake8
+          cache: "pip"
+
+      - name: Install Dependencies
         run: |
-          python -m pip install --upgrade flake8
+          python -m pip install --upgrade pip
+          python -m pip install flake8 mypy safety
+          pip install -r requirements.txt
 
       - name: "Run Flake8 for Linting"
         continue-on-error: true
         run: |
           flake8 --extend-ignore=E126,E127,E128,E203,E221,E999,W503,W504 --extend-exclude=*/migrations/*.py --max-line-length=100 `git ls-files | grep py$`
+
+      - name: "Run mypy for Type Checking"
+        continue-on-error: true
+        run: |
+          mypy thpsbot --ignore-missing-imports
+
+      - name: "Run Safety for Vulnerability Scanning"
+        continue-on-error: true
+        run: |
+          safety check -r requirements.txt
 
   deploy-main:
     if: github.ref == 'refs/heads/main'
@@ -37,7 +54,7 @@ jobs:
 
     steps:
       - name: Tailscale
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@v4
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -45,12 +62,12 @@ jobs:
           version: latest
 
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
   
       - name: SSH - Deploy - Restart Docker
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
@@ -63,3 +80,23 @@ jobs:
             echo "Restarting Docker containers..."
             docker compose down
             docker compose -f docker-compose.yml up -d --build
+
+      - name: "Health Check - Wait for Bot Startup"
+        run: sleep 60
+
+      - name: "Health Check - Verify Container Running"
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            if docker ps --format '{{.Names}}' | grep -q thpsbot; then
+              echo "THPSBot container is running"
+              docker ps | grep thpsbot
+            else
+              echo "ERROR: THPSBot container is not running!"
+              docker logs thpsbot --tail 50 || true
+              exit 1
+            fi
