@@ -8,11 +8,11 @@ if TYPE_CHECKING:
 
 
 def is_admin():
-    """Restricts commands to requiring to be in an admin or moderator role."""
-
     @check
-    async def predicate(interaction: Interaction) -> bool:
-        bot: "THPSBot" = interaction.client  # type: ignore[assignment]
+    async def predicate(
+        interaction: Interaction,
+    ) -> bool:
+        bot: "THPSBot" = interaction.client  # type: ignore
 
         if interaction.guild is None:
             raise CheckFailure("This command must be used in a guild.")
@@ -33,8 +33,10 @@ def is_admin():
     return predicate
 
 
-async def is_admin_user(user: Member | User, bot: "THPSBot") -> bool:
-    """Returns True if the user is the owner or has an admin/mod role."""
+async def is_admin_user(
+    user: Member | User,
+    bot: "THPSBot",
+) -> bool:
     if not isinstance(user, Member):
         return False
 

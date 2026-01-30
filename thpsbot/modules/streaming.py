@@ -25,6 +25,7 @@ from thpsbot.helpers.config_helper import (
 )
 from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -35,7 +36,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="Streaming")
+    await bot.remove_cog(name="Streaming")  # type: ignore
 
 
 class StreamingCog(
@@ -77,28 +78,20 @@ class StreamingCog(
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
-            self.stream_group,
-            type=app_commands.Group,
+            self.stream_group.name,
             guild=discord.Object(id=GUILD_ID),
         )
+
         await self.ttv_client.close()
 
         self.stream_loop.cancel()
 
     @tasks.loop(minutes=1)
+    @TaskHelper.safe_task
     async def stream_loop(self) -> None:
-        """Checks livestream status of players every minute."""
-        try:
-            await self._stream_loop_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in stream_loop, will retry next loop"
-            )
-        except TimeoutError:
-            self.bot._log.warning("Timeout error in stream_loop, will retry next loop")
+        await self._stream_loop_impl()
 
     async def _stream_loop_impl(self) -> None:
-        """Implementation of stream_loop."""
         async with self.task_lock:
             player_list = await AIOHTTPHelper.get(
                 url=f"{THPS_RUN_API}/players/all?query=streams",
@@ -127,63 +120,62 @@ class StreamingCog(
                             user = await first(
                                 self.ttv_client.get_users(logins=[stream.user_login])
                             )
-                            try:
-                                self.live[user.display_name]
-                            except (KeyError, TypeError):
-                                if (
-                                    "NoSRL".casefold()
-                                    not in (
-                                        tag.casefold() for tag in (stream.tags or [])
-                                    )
-                                    and entry.get("ex_stream") is False
-                                ):
-                                    thumbnail = stream.thumbnail_url.replace(
-                                        "{width}", "1280"
-                                    ).replace("{height}", "720")
+                            if user:
+                                try:
+                                    self.live[user.display_name]
+                                except (KeyError, TypeError):
+                                    if (
+                                        "NoSRL".casefold()
+                                        not in (
+                                            tag.casefold()
+                                            for tag in (stream.tags or [])
+                                        )
+                                        and entry.get("ex_stream") is False
+                                    ):
+                                        thumbnail = stream.thumbnail_url.replace(
+                                            "{width}", "1280"
+                                        ).replace("{height}", "720")
 
-                                    e_thumbnail = (
-                                        thumbnail + "?rand=" + str(int(time.time()))
-                                    )
+                                        e_thumbnail = (
+                                            thumbnail + "?rand=" + str(int(time.time()))
+                                        )
 
-                                    embed, view = EmbedCreator.twitch_embed(
-                                        title=stream.title,
-                                        thps_user=entry.get("id"),
-                                        stream_name=user.display_name,
-                                        stream_game=stream.game_name,
-                                        twitch_pfp=user.profile_image_url,
-                                        thumbnail=e_thumbnail,
-                                        src_username=entry.get("name"),
-                                    )
+                                        embed, view = EmbedCreator.twitch_embed(
+                                            title=stream.title,
+                                            thps_user=entry.get("id"),
+                                            stream_name=user.display_name,
+                                            stream_game=stream.game_name,
+                                            twitch_pfp=user.profile_image_url,
+                                            thumbnail=e_thumbnail,
+                                            src_username=entry.get("name"),
+                                        )
 
-                                    embed_stream = await self.stream_channel.send(
-                                        embed=embed, view=view
-                                    )
+                                        embed_stream = await self.stream_channel.send(
+                                            embed=embed, view=view
+                                        )
 
-                                    # try:
-                                    #     await embed_stream.publish()
-                                    # except discord.HTTPException:
-                                    #     pass
+                                        role_msg = await self.stream_channel.send(
+                                            f"<@&{self.stream_role}>"
+                                        )
 
-                                    role_msg = await self.stream_channel.send(
-                                        f"<@&{self.stream_role}>"
-                                    )
-
-                                    self.live.update(
-                                        {
-                                            f"{user.display_name}": {
-                                                "user_id": user.id,
-                                                "thpsrun_id": entry.get("id"),
-                                                "src_username": entry.get("name"),
-                                                "embed": embed_stream.id,
-                                                "role": role_msg.id,
-                                                "game": stream.game_name,
-                                                "thumbnail": thumbnail,
-                                                "pfp": user.profile_image_url,
-                                                "started_at": str(stream.started_at),
-                                                "check": 0,
+                                        self.live.update(
+                                            {
+                                                f"{user.display_name}": {
+                                                    "user_id": user.id,
+                                                    "thpsrun_id": entry.get("id"),
+                                                    "src_username": entry.get("name"),
+                                                    "embed": embed_stream.id,
+                                                    "role": role_msg.id,
+                                                    "game": stream.game_name,
+                                                    "thumbnail": thumbnail,
+                                                    "pfp": user.profile_image_url,
+                                                    "started_at": str(
+                                                        stream.started_at
+                                                    ),
+                                                    "check": 0,
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
 
             remove_stream = []
             for user, messages in self.live.items():
@@ -257,21 +249,11 @@ class StreamingCog(
             JsonHelper.save_json(self.live, "json/live.json")
 
     @tasks.loop(minutes=60)
+    @TaskHelper.safe_task
     async def check_twitch_names(self) -> None:
-        """Checks the names in the local JSON file to see if they are real Twitch games."""
-        try:
-            await self._check_twitch_names_impl()
-        except discord.DiscordServerError:
-            self.bot._log.warning(
-                "Discord 503 error in check_twitch_names, will retry next loop"
-            )
-        except TimeoutError:
-            self.bot._log.warning(
-                "Timeout error in check_twitch_names, will retry next loop"
-            )
+        await self._check_twitch_names_impl()
 
     async def _check_twitch_names_impl(self) -> None:
-        """Implementation of check_twitch_names."""
         for ttv_game in self.ttv_games:
             async for game in self.ttv_client.get_games(names=[ttv_game]):
                 if game.id not in self.stream_game_lookup:
@@ -281,7 +263,6 @@ class StreamingCog(
 
     @stream_loop.before_loop
     async def before_status_loop(self) -> None:
-        """Check messages in the livestream channel before executing."""
         await self.check_twitch_names()
 
     ###########################################################################
@@ -304,30 +285,31 @@ class StreamingCog(
     async def stream_game(
         self, interaction: Interaction, action: app_commands.Choice[str], name: str
     ) -> None:
-        """Modifies the games looked up by THPSBot to the Twitch API."""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         if action.value == "add":
             if name not in self.ttv_games:
                 game = await first(self.ttv_client.get_games(names=[name]))
 
-                if game.id not in self.stream_game_lookup:
-                    self.stream_game_lookup.append(game.id)
-                    self.ttv_games.append(game.name)
+                if game:
+                    if game.id not in self.stream_game_lookup:
+                        self.stream_game_lookup.append(game.id)
+                        self.ttv_games.append(game.name)
 
-                    JsonHelper.save_json(
-                        self.stream_game_lookup, "json/ttvgame_ids.json"
-                    )
-                    JsonHelper.save_json(self.ttv_games, "json/ttvgames.json")
+                        JsonHelper.save_json(
+                            self.stream_game_lookup, "json/ttvgame_ids.json"
+                        )
+                        JsonHelper.save_json(self.ttv_games, "json/ttvgames.json")
 
-                    await interaction.followup.send(
-                        f"{name} has been added to the lookup table.", ephemeral=True
-                    )
-                else:
-                    await interaction.followup.send(
-                        f"{name} was not added. That game's Twitch ID already exists.",
-                        ephemeral=True,
-                    )
+                        await interaction.followup.send(
+                            f"{name} has been added to the lookup table.",
+                            ephemeral=True,
+                        )
+                    else:
+                        await interaction.followup.send(
+                            f"{name} was not added. That game's Twitch ID already exists.",
+                            ephemeral=True,
+                        )
             else:
                 await interaction.followup.send(
                     f"{name} was not added. Did you spell it right? Does the category exist?",

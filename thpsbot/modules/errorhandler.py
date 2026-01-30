@@ -1,3 +1,4 @@
+import sys
 from typing import TYPE_CHECKING
 
 import discord
@@ -17,7 +18,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="ErrorHandler")
+    await bot.remove_cog(name="ErrorHandler")  # type: ignore
 
 
 class ErrorHandler(
@@ -27,6 +28,23 @@ class ErrorHandler(
 ):
     def __init__(self, bot: "THPSBot") -> None:
         self.bot = bot
+
+    @Cog.listener()
+    async def on_error(self, event_method: str, *args, **kwargs) -> None:
+        _, error, _ = sys.exc_info()
+
+        if error is None:
+            self.bot._log.warning(
+                f"on_error called for {event_method} with no exception"
+            )
+            return
+
+        if isinstance(error, (discord.DiscordServerError, TimeoutError)):
+            self.bot._log.warning(f"EVENT:{event_method} - {type(error).__name__}")
+            return
+
+        self.bot._log.error(f"EVENT:{event_method}", exc_info=error)
+        sentry_sdk.capture_exception(error)
 
     async def on_app_command_error(
         self, interaction: Interaction, error: app_commands.AppCommandError

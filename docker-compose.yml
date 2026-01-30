@@ -19,7 +19,10 @@ services:
       - json:/app/json:rw
     networks:
       - thpsbot
+      - thpsrun
 
 networks:
   thpsbot:
     driver: bridge
+  thpsrun:
+    external: true

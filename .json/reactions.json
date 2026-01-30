@@ -1,6 +1,12 @@
 {
     "primary": {
+        "message_id": null,
+        "channel_id": null,
+        "options": []
     },
     "dev": {
+        "message_id": null,
+        "channel_id": null,
+        "options": []
     }
 }

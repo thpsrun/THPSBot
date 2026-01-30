@@ -14,6 +14,7 @@ from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.autocomplete_helper import get_pfp_filenames
 from thpsbot.helpers.config_helper import ENV, GUILD_ID, STATUSES_LIST
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -24,7 +25,7 @@ async def setup(bot: "THPSBot"):
 
 
 async def teardown(bot: "THPSBot"):
-    await bot.remove_cog(name="GameActivities")
+    await bot.remove_cog(name="GameActivities")  # type: ignore
 
 
 class ActivityCog(
@@ -50,17 +51,13 @@ class ActivityCog(
         self.pfp_change.cancel()
 
     @tasks.loop(minutes=60)
+    @TaskHelper.safe_task
     async def status_loop(self) -> None:
-        """Changes the bot's status every 60 minutes."""
-        try:
-            game = Game(random.choice(self.gameslist))
-            await self.bot.change_presence(activity=game, status=Status.online)
-        except discord.DiscordServerError:
-            self.bot._log.warning("Discord 503 error in status_loop, will retry next loop")
+        game = Game(random.choice(self.gameslist))
+        await self.bot.change_presence(activity=game, status=Status.online)
 
     @status_loop.before_loop
     async def before_status_loop(self) -> None:
-        """Changes the bot's status upon initialization."""
         await self.bot.wait_until_ready()
         try:
             game = Game(random.choice(self.gameslist))
@@ -69,22 +66,16 @@ class ActivityCog(
             self.bot._log.warning("Discord 503 error in before_status_loop")
 
     @tasks.loop(hours=24)
+    @TaskHelper.safe_task
     async def pfp_change(self) -> None:
-        """Changes the bot's profile picture every 24 hours."""
         if ENV == "primary" and self.bot.user:
-            try:
-                pfp = random.choice(os.listdir("pfps/"))
+            pfp = random.choice(os.listdir("pfps/"))
 
-                with open(f"pfps/{pfp}", "rb") as image:
-                    await self.bot.user.edit(avatar=image.read())
-            except discord.DiscordServerError:
-                self.bot._log.warning(
-                    "Discord 503 error in pfp_change, will retry next loop"
-                )
+            with open(f"pfps/{pfp}", "rb") as image:
+                await self.bot.user.edit(avatar=image.read())
 
     @pfp_change.before_loop
     async def before_pfp_change(self) -> None:
-        """Changes the bot's profile picture upon initialization."""
         if ENV == "primary":
             await self.bot.wait_until_ready()
             if not self.bot.user:
@@ -110,7 +101,6 @@ class ActivityCog(
         description="See if the bot is offline and responding properly!",
     )
     async def ping(self, interaction: Interaction) -> None:
-        """See if the bot is offline and responding properly!"""
         await interaction.response.send_message(
             f"Hello, {interaction.user.mention}! If you are seeing this, I am online! "
             f"If something is broken, blame Packle.",
@@ -122,7 +112,6 @@ class ActivityCog(
         description="Reload all modules loaded into THPSBot!",
     )
     async def reload(self, interaction: Interaction) -> None:
-        """Reload all modules loaded into THPSBot!"""
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         extension_names = list(self.bot.extensions.keys())
@@ -170,7 +159,6 @@ class ActivityCog(
         status: str | None,
         force: bool | None,
     ) -> None:
-        """Adds, removes, or force changes statuses for THPSBot."""
         if action.value == "add":
             if not status:
                 await interaction.response.send_message(
@@ -276,7 +264,6 @@ class ActivityCog(
         image_url: str | None,
         pfp: str | None,
     ) -> None:
-        """Adds or force change profile pictures for THPSBot."""
         await interaction.response.defer(
             thinking=True,
             ephemeral=True,
@@ -306,9 +293,6 @@ class ActivityCog(
                     )
                     return
 
-                image = Image.open(BytesIO(response.data))
-                image = image.resize((128, 128))
-
                 await interaction.followup.send(
                     "What do you want the name of the filename to be?",
                     ephemeral=True,
@@ -327,9 +311,15 @@ class ActivityCog(
                         timeout=10,
                     )
                     new_filename = msg.content
+                    if ".." in new_filename:
+                        raise Exception("Illegal filename detected.")
+
                     await msg.delete()
 
-                    image.save(f"pfps/{new_filename}{file_extension}")
+                    if response.data is not None:
+                        image = Image.open(BytesIO(response.data))
+                        image = image.resize((128, 128))
+                        image.save(f"pfps/{new_filename}{file_extension}")
 
                     await interaction.followup.send(
                         f"{new_filename} has been successfully added!",
