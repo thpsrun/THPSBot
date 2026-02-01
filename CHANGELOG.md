@@ -1,3 +1,10 @@
+## v3.6.1
+###### February 1, 2026
+*   Added a specific Pydantic model to handle SRC and its nested `data` JSON object for individual runs.
+*   Fixed an issue where the bot would check thps.run to determine if the run is approved instead of SRC.
+*   Fixed an issue where not having the correct role name would crash the `thpsrun` cog.
+* * *
+
 ## v3.6
 ###### January 29, 2026
 ### Added

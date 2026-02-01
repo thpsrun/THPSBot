@@ -104,13 +104,15 @@ class THPSRunCog(
                     embed_data = THPSRunHelper.get_run_data(run)
 
                     role_msg_id = None
-
                     if isinstance(run.game, THPSRunGame):
-                        role_id = int(self.bot.roles["mods"][run.game.slug.upper()])
-                        role_msg = await self.submit_channel.send(f"<@&{role_id}>")
-                        role_msg_id = role_msg.id
-                    else:
-                        role_msg_id = None
+                        role_id = self.bot.roles.get("mods", {}).get(
+                            run.game.slug.upper()
+                        )
+                        if role_id is not None:
+                            role_msg = await self.submit_channel.send(
+                                f"<@&{int(role_id)}>"
+                            )
+                            role_msg_id = role_msg.id
 
                     if embed_data:
                         embed_msg = await self.submit_channel.send(
@@ -163,7 +165,7 @@ class THPSRunCog(
                         ):
                             platform_name = run_verify.system.platform.name
                         else:
-                            platform_name = "PC"
+                            platform_name = "Unknown"
 
                         await self.pb_channel.send(
                             embed=EmbedCreator.approved_embed(

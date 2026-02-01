@@ -4,6 +4,7 @@ from thpsbot.models.speedrun_api import (
     SRCNewRunsPagination,
     SRCPlayers,
     SRCRuns,
+    SRCRunsData,
     SRCStatus,
     SRCSystem,
     SRCTimes,
@@ -60,4 +61,5 @@ __all__ = [
     "SRCRuns",
     "SRCNewRuns",
     "SRCNewRunsPagination",
+    "SRCRunsData",
 ]
