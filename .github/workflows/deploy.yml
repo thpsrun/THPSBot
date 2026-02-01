@@ -46,7 +46,7 @@ jobs:
       - name: "Run Safety for Vulnerability Scanning"
         continue-on-error: true
         run: |
-          safety check -r requirements.txt
+          safety scan -r requirements.txt
 
   deploy-main:
     if: github.ref == 'refs/heads/main'

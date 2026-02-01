@@ -7,7 +7,7 @@ from discord.ext.commands import Cog
 from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.config_helper import THPS_RUN_API
 from thpsbot.helpers.task_helper import TaskHelper
-from thpsbot.models import SRCNewRuns, THPSRunNewRuns
+from thpsbot.models import SRCNewRuns, SRCRunsData, THPSRunNewRuns
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
@@ -72,19 +72,20 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
 
         runs_list = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/runs/all?query=status"
-            + "&embed=players,game,platform,record,platform",
+            + "&embed=players,game,platform,record",
             headers=self.bot.thpsrun_header,
         )
 
         if not runs_list.ok:
             return
         elif runs_list.data:
-            runs = THPSRunNewRuns.model_validate(runs_list.data)
-            for run in runs.new_runs:
+            thps_runs = THPSRunNewRuns.model_validate(runs_list.data)
+            for run in thps_runs.new_runs:
                 run_check = await AIOHTTPHelper.get(
                     url=f"https://speedrun.com/api/v1/runs/{run.id}",
                     headers=self.bot.src_header,
                 )
+                src_run = SRCRunsData.model_validate(run_check.data)
 
                 if run_check.status == 404:
                     await AIOHTTPHelper.post(
@@ -96,10 +97,12 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                     if run.id in self.local_src:
                         self.local_src.remove(run.id)
                 elif run_check.ok:
-                    if run.status.vid_status in [
+                    print(src_run.data)
+                    if src_run.data.status.status in [
                         "verified",
                         "rejected",
                     ]:
+                        print("HERE?!?!?!?!?!?!?!?!?")
                         await AIOHTTPHelper.post(
                             url=f"{THPS_RUN_API}/runs/{run.id}",
                             headers=self.bot.thpsrun_header,

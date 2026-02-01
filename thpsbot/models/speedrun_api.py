@@ -140,6 +140,16 @@ class SRCRuns(BaseModel):
     links: List[SRCLinks]
 
 
+class SRCRunsData(BaseModel):
+    """Additional model that handles looking at a new run from SRC.
+
+    Arguments:
+        data (SRCRuns): Embeds SRC data nest into model.
+    """
+
+    data: SRCRuns
+
+
 class SRCNewRunsPagination(BaseModel):
     """Embedded model that holds SRC NewRuns Pagination.
 
