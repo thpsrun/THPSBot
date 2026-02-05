@@ -97,12 +97,10 @@ class SRCCog(Cog, name="SRC", description="Automates checks with Speedrun.com's 
                     if run.id in self.local_src:
                         self.local_src.remove(run.id)
                 elif run_check.ok:
-                    print(src_run.data)
                     if src_run.data.status.status in [
                         "verified",
                         "rejected",
                     ]:
-                        print("HERE?!?!?!?!?!?!?!?!?")
                         await AIOHTTPHelper.post(
                             url=f"{THPS_RUN_API}/runs/{run.id}",
                             headers=self.bot.thpsrun_header,
