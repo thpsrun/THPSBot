@@ -181,13 +181,13 @@ class ActivityCog(
                 ephemeral=True,
             )
 
-            def check(m: discord.Message) -> bool:
+            def _check(m: discord.Message) -> bool:
                 return m.author == interaction.user and m.channel == interaction.channel
 
             try:
                 msg = await self.bot.wait_for(
                     "message",
-                    check=check,
+                    check=_check,
                     timeout=10,
                 )
                 if msg.content.lower() != "yes":
@@ -298,7 +298,7 @@ class ActivityCog(
                     ephemeral=True,
                 )
 
-                def check(m: discord.Message) -> bool:
+                def _check(m: discord.Message) -> bool:
                     return (
                         m.author == interaction.user
                         and m.channel == interaction.channel
@@ -307,7 +307,7 @@ class ActivityCog(
                 try:
                     msg = await self.bot.wait_for(
                         "message",
-                        check=check,
+                        check=_check,
                         timeout=10,
                     )
                     new_filename = msg.content
