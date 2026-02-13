@@ -53,6 +53,8 @@ class StreamingCog(
 
         self.stream_game_lookup: list[str] = TTVGAME_IDS
 
+        # Certain portions of the code can be asynced improperly and overlap, causing issues with
+        # the APIs. So, this will help lock it down to single threads before returning async.
         self.task_lock = asyncio.Lock()
 
     async def cog_load(self) -> None:
