@@ -71,7 +71,7 @@ class THPSRunCog(
             override=True,
         )
 
-        self.check_approval_status.start()
+        self._check_approval_status.start()
         await AIOHTTPHelper.init_session()
 
     async def cog_unload(self) -> None:
@@ -80,15 +80,15 @@ class THPSRunCog(
             guild=discord.Object(id=GUILD_ID),
         )
 
-        self.check_approval_status.cancel()
+        self._check_approval_status.cancel()
         await AIOHTTPHelper.close_session()
 
     @tasks.loop(seconds=30)
     @TaskHelper.safe_task
-    async def check_approval_status(self):
-        await self.approval_status()
+    async def _check_approval_status(self):
+        await self._approval_status()
 
-    async def approval_status(self):
+    async def _approval_status(self):
         get_runs = await AIOHTTPHelper.get(
             url=f"{THPS_RUN_API}/runs/all?query=status"
             + "&embed=players,game,platform,record,platform",

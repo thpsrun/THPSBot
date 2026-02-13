@@ -1,3 +1,9 @@
+## v3.7
+###### February 12, 2026
+*   Added some additional comments to explain some more obscure things of the project.
+*   Removed the `SRC` cog, moving those API calls to a different bot to reduce the amount of things this bot does.
+* * *
+
 ## v3.6.1
 ###### February 1, 2026
 *   Added a specific Pydantic model to handle SRC and its nested `data` JSON object for individual runs.

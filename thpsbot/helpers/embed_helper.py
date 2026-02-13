@@ -277,6 +277,9 @@ class EmbedCreator:
             )
         )
 
+        # This is a temporary measure added so marathons are displayed differently.
+        # If the username ends with "-mar" (e.g. "GamesDoneQuick-mar"), then they will not be given
+        # additional buttons. These two buttons are to link to the user's SRC and thps.run profiles.
         if "-mar" not in thps_user:
             view.add_item(
                 discord.ui.Button(
@@ -307,6 +310,7 @@ class EmbedCreator:
         if not twitch_pfp:
             twitch_pfp = DEFAULT_IMG
 
+        # This section is to convert the uptime to a proper format to display on the VOD embed.
         secs_uptime = (
             datetime.now(timezone.utc) - datetime.fromisoformat(started_at)
         ).total_seconds() - (TTV_TIMEOUT * 60)

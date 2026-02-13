@@ -100,7 +100,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             override=True,
         )
 
-        self.check_reminders.start()
+        self._check_reminders.start()
 
         for reminder, metadata in self.reminder_list.items():
             if metadata["type"] == "private":
@@ -118,11 +118,11 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             guild=discord.Object(id=GUILD_ID),
         )
 
-        self.check_reminders.cancel()
+        self._check_reminders.cancel()
 
     @tasks.loop(seconds=30)
     @TaskHelper.safe_task
-    async def check_reminders(self) -> None:
+    async def _check_reminders(self) -> None:
         await self.reminders()
 
     async def reminders(self) -> None:
@@ -270,6 +270,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         long_tag: str = ""
 
         if time:
+            # This is the usual RegEx syntax associated with Discord timestamp messages.
             matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
             if not matched_time:
                 await interaction.followup.send(
@@ -615,7 +616,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         await message.edit(embed=embed)
 
         self.reminder_list[message_id].update({"time": str(local_time)})
-        await self.check_reminders()
+        await self._check_reminders()
 
         await interaction.followup.send(
             f"{message_id}'s poll was stopped. DM should be sent to author shortly.",

@@ -1,3 +1,4 @@
+import asyncio
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -53,10 +54,12 @@ class AIOHTTPHelper:
             await cls._session.close()
 
     @classmethod
-    async def get(
+    async def _request(
         cls,
+        method: str,
         url: str,
         headers: dict[str, str] | None,
+        data: dict[str, Any] | None = None,
         timeout: int = 10,
     ) -> AIOHTTPResponse:
         if cls._session is None or cls._session.closed:
@@ -65,21 +68,26 @@ class AIOHTTPHelper:
         assert cls._session is not None
         host = cls._extract_host(url)
 
+        kwargs: dict[str, Any] = {
+            "headers": headers,
+            "timeout": aiohttp.ClientTimeout(total=timeout),
+        }
+        if data is not None:
+            kwargs["json"] = data
+
         try:
-            async with cls._session.get(
-                url,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-            ) as response:
+            async with cls._session.request(method, url, **kwargs) as response:
                 cls._host_failures[host] = 0
 
                 status = response.status
-                data = None
+                response_data = None
+
+                # Both APIs use JSON as the formatting, so if it doesn't return JSON, then
+                # there is an issue with the API itself.
                 if response.content_type == "application/json":
-                    data = await response.json()
-                else:
-                    data = await response.read()
-                return AIOHTTPResponse(status=status, data=data)
+                    response_data = await response.json()
+
+                return AIOHTTPResponse(status=status, data=response_data)
         except ClientConnectorError:
             cls._host_failures[host] = cls._host_failures.get(host, 0) + 1
 
@@ -93,6 +101,19 @@ class AIOHTTPHelper:
                 status=503,
                 data=None,
             )
+        except asyncio.TimeoutError:
+            cls._host_failures[host] = cls._host_failures.get(host, 0) + 1
+
+            if cls._host_failures[host] >= cls._max_failures:
+                raise ServiceUnavailableError(
+                    host,
+                    cls._host_failures[host],
+                )
+
+            return AIOHTTPResponse(
+                status=408,
+                data=None,
+            )
         except ClientConnectionError:
             if cls._reconnecting:
                 cls._reconnecting = False
@@ -101,56 +122,35 @@ class AIOHTTPHelper:
             cls._reconnecting = True
             cls._session = None
             await cls.init_session()
-            result = await cls.get(url, headers, timeout)
+            result = await cls._request(method, url, headers, data, timeout)
             cls._reconnecting = False
             return result
 
-    @staticmethod
+    @classmethod
+    async def get(
+        cls,
+        url: str,
+        headers: dict[str, str] | None,
+        timeout: int = 10,
+    ) -> AIOHTTPResponse:
+        return await cls._request("GET", url, headers, timeout=timeout)
+
+    @classmethod
     async def post(
+        cls,
         url: str,
         headers: dict[str, str] | None,
         data: dict[str, Any] | None,
         timeout: int = 10,
     ) -> AIOHTTPResponse:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                url,
-                json=data,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-            ) as response:
-                status = response.status
-                response_data = None
+        return await cls._request("POST", url, headers, data=data, timeout=timeout)
 
-                if response.content_type == "application/json":
-                    response_data = await response.json()
-
-                return AIOHTTPResponse(
-                    status=status,
-                    data=response_data,
-                )
-
-    @staticmethod
+    @classmethod
     async def put(
+        cls,
         url: str,
         headers: dict[str, str] | None,
         data: dict[str, Any] | None,
         timeout: int = 10,
     ) -> AIOHTTPResponse:
-        async with aiohttp.ClientSession() as session:
-            async with session.put(
-                url,
-                json=data,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=timeout),
-            ) as response:
-                status = response.status
-                response_data = None
-
-                if response.content_type == "application/json":
-                    response_data = await response.json()
-
-                return AIOHTTPResponse(
-                    status=status,
-                    data=response_data,
-                )
+        return await cls._request("PUT", url, headers, data=data, timeout=timeout)

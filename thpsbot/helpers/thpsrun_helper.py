@@ -55,7 +55,7 @@ class THPSRunHelper:
             embed_title = "\U0001f948 (PB) " + embed_title + " \U0001f948"
         elif data.place == 3:
             embed_title = "\U0001f949 (PB) " + embed_title + " \U0001f949"
-        elif data.place is False:
+        elif data.place is False:  # This is for runs that are obsolete.
             embed_title = "(PB) " + embed_title
 
         if isinstance(data.players, list):
