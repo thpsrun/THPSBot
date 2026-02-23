@@ -200,18 +200,6 @@ class THPSRunCog(
                             await role_msg.delete()
 
                         remove_run.append(run)
-
-                        if embed_data.warnings:
-                            await self.submit_channel.send(
-                                content=(
-                                    "The following submission has warnings.\n"
-                                    f"**[Submission Link]({run_verify.meta.url}) -- Warnings: **"
-                                    f"{' | '.join(embed_data.warnings)} \n"
-                                    "Once fixed on SRC, a Discord Mod or Admin needs to run: \n"
-                                    f"`/thpsrun run import {run_verify.meta.url}`"
-                                    "*Remove embed once approved or if a false positive.*"
-                                ),
-                            )
                 elif run_verify.status.vid_status == "rejected":
                     embed_msg = await self.submit_channel.fetch_message(
                         self.submissions[run]["submission"]
