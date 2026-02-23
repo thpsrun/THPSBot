@@ -1,3 +1,8 @@
+## v3.7.1
+###### February 22, 2026
+*   Removed the tertiary "warnings" embed.
+* * *
+
 ## v3.7
 ###### February 12, 2026
 *   Added some additional comments to explain some more obscure things of the project.
