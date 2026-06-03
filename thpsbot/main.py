@@ -41,11 +41,11 @@ class THPSBot(commands.Bot):
         self.start_time = time.time()
 
         self.thpsrun_header: dict[str, str] = {
-            "Authorization": f"Api-Key {THPS_RUN_KEY}",
-            "User-Agent": "THPSBot/3.6; thps.run Leaderboards",
+            "X-API-Key": THPS_RUN_KEY,
+            "User-Agent": "THPSBot/4.0; thps.run Leaderboards",
         }
         self.src_header: dict[str, str] = {
-            "User-Agent": "THPSBot/3.6; thps.run Leaderboards"
+            "User-Agent": "THPSBot/4.0; thps.run Leaderboards"
         }
         self.roles: dict[str, dict] = ROLES_LIST[ENV]
         self._log.info("Bot successfully started...")

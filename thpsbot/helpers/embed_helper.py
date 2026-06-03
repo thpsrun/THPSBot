@@ -12,9 +12,9 @@ from thpsbot.helpers.config_helper import (
     THPS_RUN_API,
     TTV_TIMEOUT,
 )
-from thpsbot.models import THPSRunGame, THPSRunRuns
+from thpsbot.models import PlayerRunInline
 
-THPS_RUN = THPS_RUN_API.replace("/api", "")
+THPS_RUN = THPS_RUN_API.split("/api/")[0]
 load_dotenv()
 
 
@@ -27,7 +27,6 @@ class EmbedCreator:
         player: str,
         player_pfp: str | None,
         placement: int,
-        lb_count: int,
         points: float,
         platform: str,
         time: str,
@@ -39,7 +38,7 @@ class EmbedCreator:
         obsolete: bool,
     ) -> Embed:
         if player_pfp:
-            pfp = THPS_RUN + player_pfp.lstrip("srl")
+            pfp = THPS_RUN
         else:
             pfp = DEFAULT_IMG
 
@@ -59,9 +58,7 @@ class EmbedCreator:
             embed.set_author(name=player, url="https://speedrun.com/")
 
         if not obsolete:
-            embed.add_field(
-                name="Placement", value=f"{placement} / {lb_count}", inline=True
-            )
+            embed.add_field(name="Placement", value=f"{placement}", inline=True)
             embed.add_field(name="Points", value=f"{points}", inline=True)
 
         embed.add_field(name="Platform", value=platform, inline=True)
@@ -93,7 +90,7 @@ class EmbedCreator:
         warnings: list | None,
     ) -> Embed:
         if player_pfp:
-            pfp = THPS_RUN + player_pfp.lstrip("srl")
+            pfp = THPS_RUN
         else:
             pfp = DEFAULT_IMG
 
@@ -132,12 +129,11 @@ class EmbedCreator:
         player: str,
         nickname: str | None,
         player_pfp: str | None,
-        total_points: int,
-        main_points: int | None,
-        il_points: int | None,
-        total_runs: int,
-        recent_main_runs: list[THPSRunRuns] | None,
-        recent_il_runs: list[THPSRunRuns] | None,
+        fg_points: float | None,
+        il_points: float | None,
+        total_runs: int | None,
+        recent_main_runs: list[PlayerRunInline] | None,
+        recent_il_runs: list[PlayerRunInline] | None,
     ) -> Embed:
         if nickname:
             title_name = f"{player} ({nickname}) Statistics"
@@ -145,7 +141,7 @@ class EmbedCreator:
             title_name = f"{player} Statistics"
 
         if player_pfp:
-            pfp = THPS_RUN + player_pfp.lstrip("srl")
+            pfp = THPS_RUN
         else:
             pfp = DEFAULT_IMG
 
@@ -162,80 +158,34 @@ class EmbedCreator:
         else:
             embed.set_author(name=player, url="https://speedrun.com/")
 
-        embed.add_field(name="Total Points", value=total_points, inline=True)
-
-        if main_points:
-            embed.add_field(name="Main Game Points", value=main_points, inline=True)
+        if fg_points:
+            embed.add_field(name="Main Game Points", value=fg_points, inline=True)
 
         if il_points:
             embed.add_field(name="IL Points", value=il_points, inline=True)
 
-        embed.add_field(name="Total Runs", value=total_runs, inline=True)
+        embed.add_field(name="Total Runs", value=total_runs or 0, inline=True)
         embed.set_footer(text=BOT)
 
-        time_key_map = {
-            "realtime": "time",
-            "realtime_noloads": "timenl",
-            "ingame": "timeigt",
-        }
+        def _render(runs: list[PlayerRunInline], header: str) -> None:
+            if not runs:
+                return
+            embed.add_field(name=header, value="", inline=False)
+            for index, run in enumerate(runs, start=1):
+                game = (run.game.slug or "").upper() if run.game else ""
+                if game == "THPS34":
+                    game = "THPS3+4"
+                elif game == "THPS12":
+                    game = "THPS1+2"
+                subcat = run.subcategory or ""
+                embed.add_field(
+                    name="",
+                    value=f"{index}. [{game} - {subcat} in {run.time}]({run.url})",
+                    inline=False,
+                )
 
-        if recent_main_runs and len(recent_main_runs) > 0:
-            embed.add_field(name="Most Recent Main Game Runs", value="", inline=False)
-
-            run_number = 1
-            for run in recent_main_runs:
-                default_time = run.times.defaulttime
-                time_key = time_key_map.get(default_time)
-                if time_key is None:
-                    continue
-
-                if isinstance(run.game, THPSRunGame):
-                    game = run.game.slug.upper()
-                    if "THPS34" == game:
-                        game = "THPS3+4"
-                    elif "THPS12" == game:
-                        game = "THPS1+2"
-
-                    subcat = run.subcategory
-                    time = getattr(run.times, time_key)
-                    url = run.meta.url
-
-                    embed.add_field(
-                        name="",
-                        value=f"{run_number}. [{game} - {subcat} in {time}]({url})",
-                        inline=False,
-                    )
-
-                    run_number += 1
-
-        if recent_il_runs and len(recent_il_runs) > 0:
-            embed.add_field(name="Most Recent IL Runs", value="", inline=False)
-
-            run_number = 1
-            for run in recent_il_runs:
-                default_time = run.times.defaulttime
-                time_key = time_key_map.get(default_time)
-                if time_key is None:
-                    continue
-
-                if isinstance(run.game, THPSRunGame):
-                    game = run.game.slug.upper()
-                    if "THPS34" == game:
-                        game = "THPS3+4"
-                    elif "THPS12" == game:
-                        game = "THPS1+2"
-
-                    subcat = run.subcategory
-                    time = getattr(run.times, time_key)
-                    url = run.meta.url
-
-                    embed.add_field(
-                        name="",
-                        value=f"{run_number}. [{game} - {subcat} in {time}]({url})",
-                        inline=False,
-                    )
-
-                    run_number += 1
+        _render(recent_main_runs or [], "Most Recent Main Game Runs")
+        _render(recent_il_runs or [], "Most Recent IL Runs")
 
         return embed
 
