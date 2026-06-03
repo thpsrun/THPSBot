@@ -58,8 +58,10 @@ class THPSRunCog(
     ) -> str | None:
         if not run.players:
             return None
+
+        THPS_RUN = THPS_RUN_API.split("/api/")[0]
         resp = await AIOHTTPHelper.get(
-            url=f"{THPS_RUN_API}/players/{run.players[0].id}",
+            url=f"{THPS_RUN}/players/{run.players[0].id}",
             headers=self.bot.thpsrun_header,
         )
         if resp.ok and isinstance(resp.data, dict):
