@@ -1,3 +1,9 @@
+## v4.0.1
+###### June 2, 2026
+*   Fixed an issue where the returned `pfp` value of a player was appended to `THPS_RUN_API`, resulting in an error.
+
+* * *
+
 ## v4.0
 ###### June 2, 2026
 *   Added support for the new thps.run update.
