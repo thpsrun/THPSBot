@@ -53,6 +53,9 @@ class StreamingCog(
 
         self.stream_game_lookup: list[str] = TTVGAME_IDS
 
+        self._non_members: set[str] = set()
+        self.thps_game_lookup: dict[str, str] = {}
+
         # Certain portions of the code can be asynced improperly and overlap, causing issues with
         # the APIs. So, this will help lock it down to single threads before returning async.
         self.task_lock = asyncio.Lock()
@@ -95,15 +98,6 @@ class StreamingCog(
 
     async def _stream_loop_impl(self) -> None:
         async with self.task_lock:
-            player_list = await AIOHTTPHelper.get(
-                url=f"{THPS_RUN_API}/players/all?query=streams",
-                headers=self.bot.thpsrun_header,
-            )
-
-            if not player_list.data or not player_list.ok:
-                self.bot._log.error("No player data received; is thps.run online?")
-                return
-
             for game_id in self.stream_game_lookup:
                 async for stream in self.ttv_client.get_streams(
                     game_id=[game_id], first=100, stream_type="live"
@@ -111,73 +105,106 @@ class StreamingCog(
                     if not stream.title:
                         continue
 
-                    for _, entry in enumerate(player_list.data):
-                        if not entry.get("twitch"):
-                            continue
+                    user = await first(
+                        self.ttv_client.get_users(logins=[stream.user_login])
+                    )
+                    if not user:
+                        continue
 
-                        if (
-                            entry.get("twitch").casefold()
-                            == stream.user_login.casefold()
-                        ):
-                            user = await first(
-                                self.ttv_client.get_users(logins=[stream.user_login])
-                            )
-                            if user:
-                                try:
-                                    self.live[user.display_name]
-                                except (KeyError, TypeError):
-                                    if (
-                                        "NoSRL".casefold()
-                                        not in (
-                                            tag.casefold()
-                                            for tag in (stream.tags or [])
-                                        )
-                                        and entry.get("ex_stream") is False
-                                    ):
-                                        thumbnail = stream.thumbnail_url.replace(
-                                            "{width}", "1280"
-                                        ).replace("{height}", "720")
+                    if user.display_name in self.live:
+                        continue
 
-                                        e_thumbnail = (
-                                            thumbnail + "?rand=" + str(int(time.time()))
-                                        )
+                    login_cf = stream.user_login.casefold()
+                    if login_cf in self._non_members:
+                        continue
 
-                                        embed, view = EmbedCreator.twitch_embed(
-                                            title=stream.title,
-                                            thps_user=entry.get("id"),
-                                            stream_name=user.display_name,
-                                            stream_game=stream.game_name,
-                                            twitch_pfp=user.profile_image_url,
-                                            thumbnail=e_thumbnail,
-                                            src_username=entry.get("name"),
-                                        )
+                    search = await AIOHTTPHelper.get(
+                        url=f"{THPS_RUN_API}/players/search?twitch={stream.user_login}",
+                        headers=self.bot.thpsrun_header,
+                    )
+                    if (
+                        not search.ok
+                        or not isinstance(search.data, list)
+                        or not search.data
+                    ):
+                        self._non_members.add(login_cf)
+                        continue
 
-                                        embed_stream = await self.stream_channel.send(
-                                            embed=embed, view=view
-                                        )
+                    player_id = search.data[0]["id"]
+                    src_username = search.data[0]["name"]
 
-                                        role_msg = await self.stream_channel.send(
-                                            f"<@&{self.stream_role}>"
-                                        )
+                    detail = await AIOHTTPHelper.get(
+                        url=f"{THPS_RUN_API}/players/{player_id}",
+                        headers=self.bot.thpsrun_header,
+                    )
+                    ex_stream = False
+                    if detail.ok and isinstance(detail.data, dict):
+                        ex_stream = (detail.data.get("player") or {}).get(
+                            "ex_stream", False
+                        )
+                    if ex_stream:
+                        continue
 
-                                        self.live.update(
-                                            {
-                                                f"{user.display_name}": {
-                                                    "user_id": user.id,
-                                                    "thpsrun_id": entry.get("id"),
-                                                    "src_username": entry.get("name"),
-                                                    "embed": embed_stream.id,
-                                                    "role": role_msg.id,
-                                                    "game": stream.game_name,
-                                                    "thumbnail": thumbnail,
-                                                    "pfp": user.profile_image_url,
-                                                    "started_at": str(
-                                                        stream.started_at
-                                                    ),
-                                                    "check": 0,
-                                                }
-                                            }
-                                        )
+                    if stream.tags and "NoSRL" in stream.tags:
+                        continue
+
+                    thumbnail = stream.thumbnail_url.replace("{width}", "1280").replace(
+                        "{height}", "720"
+                    )
+
+                    e_thumbnail = thumbnail + "?rand=" + str(int(time.time()))
+
+                    embed, view = EmbedCreator.twitch_embed(
+                        title=stream.title,
+                        thps_user=player_id,
+                        stream_name=user.display_name,
+                        stream_game=stream.game_name,
+                        twitch_pfp=user.profile_image_url,
+                        thumbnail=e_thumbnail,
+                        src_username=src_username,
+                    )
+
+                    embed_stream = await self.stream_channel.send(
+                        embed=embed, view=view
+                    )
+
+                    role_msg = await self.stream_channel.send(f"<@&{self.stream_role}>")
+
+                    self.live.update(
+                        {
+                            f"{user.display_name}": {
+                                "user_id": user.id,
+                                "thpsrun_id": player_id,
+                                "src_username": src_username,
+                                "embed": embed_stream.id,
+                                "role": role_msg.id,
+                                "game": stream.game_name,
+                                "thumbnail": thumbnail,
+                                "pfp": user.profile_image_url,
+                                "started_at": str(stream.started_at),
+                                "check": 0,
+                            }
+                        }
+                    )
+
+                    try:
+                        await AIOHTTPHelper.post(
+                            url=f"{THPS_RUN_API}/streams/",
+                            headers=self.bot.thpsrun_header,
+                            data={
+                                "player_id": player_id,
+                                "game_id": self.thps_game_lookup.get(
+                                    stream.game_name.casefold()
+                                ),
+                                "title": stream.title,
+                                "offline_ct": 0,
+                                "stream_time": str(stream.started_at),
+                            },
+                        )
+                    except Exception as exc:
+                        self.bot._log.error(
+                            "streams POST failed for %s: %s", user.display_name, exc
+                        )
 
             remove_stream = []
             for user, messages in self.live.items():
@@ -216,6 +243,22 @@ class StreamingCog(
 
                     self.live[user].update({"check": 0})
 
+                    try:
+                        await AIOHTTPHelper.put(
+                            url=f"{THPS_RUN_API}/streams/{self.live[user]['thpsrun_id']}",
+                            headers=self.bot.thpsrun_header,
+                            data={
+                                "game_id": self.thps_game_lookup.get(
+                                    stream.game_name.casefold()
+                                ),
+                                "title": stream.title,
+                                "offline_ct": 0,
+                                "stream_time": self.live[user]["started_at"],
+                            },
+                        )
+                    except Exception as exc:
+                        self.bot._log.error("streams PUT failed for %s: %s", user, exc)
+
             if len(remove_stream) > 0:
                 for stream in remove_stream:
                     archive = await first(
@@ -226,6 +269,16 @@ class StreamingCog(
                             sort=SortMethod.TIME,
                         )
                     )
+
+                    try:
+                        await AIOHTTPHelper.delete(
+                            url=f"{THPS_RUN_API}/streams/{self.live[stream]['thpsrun_id']}",
+                            headers=self.bot.thpsrun_header,
+                        )
+                    except Exception as exc:
+                        self.bot._log.error(
+                            "streams DELETE failed for %s: %s", stream, exc
+                        )
 
                     await self.stream_thread.send(
                         embed=EmbedCreator.twitch_offline_embed(
@@ -262,6 +315,20 @@ class StreamingCog(
                     self.stream_game_lookup.append(game.id)
 
         JsonHelper.save_json(self.stream_game_lookup, "json/ttvgame_ids.json")
+
+        self._non_members.clear()
+
+        games_resp = await AIOHTTPHelper.get(
+            url=f"{THPS_RUN_API}/games/all",
+            headers=self.bot.thpsrun_header,
+        )
+        if games_resp.ok and isinstance(games_resp.data, list):
+            lookup: dict[str, str] = {}
+            for game in games_resp.data:
+                twitch_name = game.get("twitch")
+                if twitch_name and twitch_name.casefold() not in lookup:
+                    lookup[twitch_name.casefold()] = game["id"]
+            self.thps_game_lookup = lookup
 
     @stream_loop.before_loop
     async def before_status_loop(self) -> None:

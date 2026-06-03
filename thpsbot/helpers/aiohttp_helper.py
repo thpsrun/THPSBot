@@ -154,3 +154,12 @@ class AIOHTTPHelper:
         timeout: int = 10,
     ) -> AIOHTTPResponse:
         return await cls._request("PUT", url, headers, data=data, timeout=timeout)
+
+    @classmethod
+    async def delete(
+        cls,
+        url: str,
+        headers: dict[str, str] | None,
+        timeout: int = 10,
+    ) -> AIOHTTPResponse:
+        return await cls._request("DELETE", url, headers, timeout=timeout)

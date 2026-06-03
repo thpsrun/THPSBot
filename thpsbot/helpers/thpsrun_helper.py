@@ -1,15 +1,35 @@
+import logging
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from thpsbot.models import THPSRunGame, THPSRunPlayers, THPSRunRuns
+from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
+from thpsbot.helpers.config_helper import THPS_RUN_API
+from thpsbot.models import (
+    THPSRunCategory,
+    THPSRunGame,
+    THPSRunLevel,
+    THPSRunRuns,
+)
+
+if TYPE_CHECKING:
+    from thpsbot.main import THPSBot
+
+_log = logging.getLogger(__name__)
+
+# v4 timing-method labels (resolved_primary_method / import-issue methods).
+METHOD_LABELS: dict[str, str] = {"rta": "RTA", "lrt": "LRT", "igt": "IGT"}
+TIMING_NAMES: dict[str, str] = {
+    "rta": "Real Time",
+    "lrt": "Load-Removed Time",
+    "igt": "In-Game Time",
+}
 
 
 @dataclass
 class THPSRunHelperResponse:
     embed_title: str
     players: str
-    player_pfp: str | None
     time: str
     run_type: str
     delta: Any | None
@@ -27,7 +47,7 @@ class THPSRunHelper:
 
     @staticmethod
     def format_time(
-        seconds: int,
+        seconds: float,
     ) -> str:
         hours, remainder = divmod(int(seconds), 3600)
         minutes, seconds_int = divmod(remainder, 60)
@@ -42,99 +62,134 @@ class THPSRunHelper:
         data: THPSRunRuns,
     ) -> THPSRunHelperResponse | None:
         embed_title = (
-            data.game.name if isinstance(data.game, THPSRunGame) else data.game
+            data.game.name if isinstance(data.game, THPSRunGame) else (data.game or "")
         )
-        warnings = []
 
         if data.level:
             embed_title = embed_title + " [IL]"
 
-        if data.place == 1:
+        if data.obsolete:
+            embed_title = "(PB) " + embed_title
+        elif data.place == 1:
             embed_title = "\U0001f3c6 (WR) " + embed_title + " \U0001f3c6"
         elif data.place == 2:
             embed_title = "\U0001f948 (PB) " + embed_title + " \U0001f948"
         elif data.place == 3:
             embed_title = "\U0001f949 (PB) " + embed_title + " \U0001f949"
-        elif data.place is False:  # This is for runs that are obsolete.
-            embed_title = "(PB) " + embed_title
 
-        if isinstance(data.players, list):
-            players = ", ".join(player.name for player in data.players)
-            player_pfp = data.players[0].pfp
-        elif isinstance(data.players, THPSRunPlayers):
-            players = data.players.name
-            player_pfp = data.players.pfp
+        players = ", ".join(player.name for player in data.players)
+
+        method = data.resolved_primary_method or ""
+        run_type = METHOD_LABELS.get(method, method.upper())
+
+        if data.times.p_time:
+            run_time = data.times.p_time
+        elif data.times.p_time_secs is not None:
+            run_time = THPSRunHelper.format_time(data.times.p_time_secs)
         else:
-            players = ""
-            player_pfp = ""
-
-        time_key_map: dict[str, tuple[str, str]] = {
-            "realtime": ("time_secs", "RTA"),
-            "realtime_noloads": ("timenl_secs", "LRT"),
-            "ingame": ("timeigt_secs", "IGT"),
-        }
-
-        default_time = data.times.defaulttime
-        time_info = time_key_map.get(default_time)
-        if time_info is None:
-            return None
-
-        time_key, run_type = time_info
-        run_time = THPSRunHelper.format_time(getattr(data.times, time_key))
-
-        if isinstance(data.record, THPSRunRuns):
-            if data.id != data.record.id:
-                record_time = getattr(data.record.times, time_key)
-                pb_time = getattr(data.times, time_key)
-
-                record_time_str = THPSRunHelper.format_time(record_time)
-                difference = THPSRunHelper.format_time(round(pb_time - record_time, 3))
-
-                delta = f"{record_time_str} [+{difference}]"
-            else:
-                delta = None
-        else:
-            delta = "No Previous WR"
-
-        # Checks to see if the run has a video AND if it is from YouTube.
-        # If neither occurs, a warning is added.
-        youtube = ["youtube.com", "youtu.be"]
-        if not data.videos.video:
-            warnings.append("No Video Detected")
-        elif not any(y in data.videos.video for y in youtube):
-            warnings.append("Non-YouTube Video Detected")
-
-        # Checks if the game expects a timing method but the run is missing that time.
-        if isinstance(data.game, THPSRunGame):
-            expected_time_method = (
-                data.game.idefaulttime if data.level else data.game.defaulttime
-            )
-            expected_time_info = time_key_map.get(expected_time_method)
-            if expected_time_info:
-                expected_time_key, expected_label = expected_time_info
-                if getattr(data.times, expected_time_key) is None:
-                    warnings.append(f"Missing Expected Time ({expected_label})")
-
-            # For ILs, checks if extra time fields are populated beyond the expected idefaulttime.
-            if data.level:
-                il_time_info = time_key_map.get(data.game.idefaulttime)
-                if il_time_info:
-                    il_time_key, _ = il_time_info
-                    extra_times = []
-                    for _, (key, label) in time_key_map.items():
-                        if key != il_time_key and getattr(data.times, key) != 0:
-                            extra_times.append(label)
-                    if extra_times:
-                        warnings.append(
-                            f"IL Has Extra Timings: {', '.join(extra_times)}"
-                        )
+            run_time = "Unknown"
 
         return THPSRunHelperResponse(
             embed_title=embed_title,
             players=players,
-            player_pfp=player_pfp,
             time=run_time,
             run_type=run_type,
-            delta=delta,
-            warnings=warnings,
+            delta=None,
+            warnings=None,
         )
+
+    @staticmethod
+    async def get_import_issues(
+        bot: "THPSBot",
+        run_id: str,
+    ) -> list[str]:
+        """Fetch v4 import-validation flags for a run and format them as embed lines."""
+        try:
+            resp = await AIOHTTPHelper.get(
+                url=f"{THPS_RUN_API}/runs/{run_id}/import-issues",
+                headers=bot.thpsrun_header,
+            )
+        except Exception as e:
+            _log.warning("import-issues fetch failed for %s", run_id, exc_info=e)
+            return []
+
+        if not resp.ok or not isinstance(resp.data, dict):
+            if resp.status in (401, 403):
+                _log.error(
+                    "import-issues %s: %s (check X-API-Key games.audit.view scope)",
+                    resp.status,
+                    run_id,
+                )
+            return []
+
+        lines: list[str] = []
+        for issue in resp.data.get("import_issues") or []:
+            itype = issue.get("type")
+            if itype == "missing_timing_methods":
+                names = [TIMING_NAMES.get(m, m) for m in issue.get("methods", [])]
+                lines.append("Missing Timing: " + ", ".join(names))
+            elif itype == "invalid_video_host":
+                lines.append("Non-YouTube Video: " + str(issue.get("url", "")))
+            else:
+                lines.append("Unknown Issue: " + str(itype))
+        return lines
+
+    @staticmethod
+    async def get_record_delta(
+        bot: "THPSBot",
+        run: THPSRunRuns,
+    ) -> dict | None:
+        """Compute a run's delta to the WR on its exact leaderboard (two public GETs)."""
+        r_secs = run.times.p_time_secs
+        if r_secs is None:
+            return None
+
+        game_id = run.game.id if isinstance(run.game, THPSRunGame) else run.game
+        category_id = (
+            run.category.id
+            if isinstance(run.category, THPSRunCategory)
+            else run.category
+        )
+        level_id = run.level.id if isinstance(run.level, THPSRunLevel) else run.level
+
+        query = (
+            f"{THPS_RUN_API}/runs/all?game_id={game_id}"
+            f"&category_id={category_id}&place=1&status=verified"
+        )
+        if level_id:
+            query += f"&level_id={level_id}"
+
+        resp = await AIOHTTPHelper.get(url=query, headers=bot.thpsrun_header)
+        if not resp.ok or not isinstance(resp.data, list):
+            return {"record": None}
+
+        wr: THPSRunRuns | None = None
+        for raw in resp.data:
+            candidate = THPSRunRuns(**raw)
+            cand_level = (
+                candidate.level.id
+                if isinstance(candidate.level, THPSRunLevel)
+                else candidate.level
+            )
+            if cand_level == level_id and candidate.variables == run.variables:
+                wr = candidate
+                break
+
+        if wr is None:
+            return {"record": None}
+
+        w_secs = wr.times.p_time_secs
+        if w_secs is None:
+            return None
+
+        delta = round(r_secs - w_secs, 3)
+        return {
+            "run_id": run.id,
+            "run_secs": r_secs,
+            "run_time": run.times.p_time,
+            "wr_id": wr.id,
+            "wr_secs": w_secs,
+            "wr_time": wr.times.p_time,
+            "delta_secs": delta,
+            "is_record": delta <= 0,
+        }

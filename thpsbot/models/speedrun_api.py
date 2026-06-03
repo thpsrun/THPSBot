@@ -117,7 +117,7 @@ class SRCRuns(BaseModel):
         date (str): The simplified date the speedrun was submitted to SRC.
         submitted (str): The long-format date the speedrun was submitted to SRC.
         times (SRCTimes): List of times that was declared for the speedrun.
-        splits (str | None): [DEPRECATED] Direct link to the splits file on splits.io.
+        splits (str | None): Direct link to the splits file on splits.io (thought it is dead).
         values (dict[str, str]): Dictionary item showing the variable:value pairs for the run.
         links (List[SRCLinks]): List of related links to the speedrun (e.g. game, category)
     """
@@ -135,7 +135,7 @@ class SRCRuns(BaseModel):
     submitted: str
     times: SRCTimes
     system: SRCSystem
-    splits: str | None = None
+    splits: dict | str | None = None
     values: dict[str, str]
     links: List[SRCLinks]
 
