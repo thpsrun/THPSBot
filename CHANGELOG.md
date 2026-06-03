@@ -1,5 +1,5 @@
 ## v4.0
-###### June 1, 2026
+###### June 2, 2026
 *   Added support for the new thps.run update.
     *   `/runs` and `/players` endpoints have been added.
 *   Updated support for the bot to GET, POST, PUT, and DELETE to the thps.run `/streams` endpoint.
