@@ -28,6 +28,7 @@ STREAM_OFF_THREAD: int = int(CHANNELS_LIST[ENV]["stream"]["thread"])
 
 THPS_RUN_KEY: str = os.getenv("THPSRUN_API_KEY", "")
 THPS_RUN_API: str = os.getenv("THPS_RUN_API", "")
+THPS_RUN_SITE: str = os.getenv("THPS_RUN_SITE", "https://thps.run")
 
 SENTRY_SDN: str = os.getenv("SENTRY_SDN", "")
 
