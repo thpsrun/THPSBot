@@ -1,3 +1,9 @@
+## v4.0.3
+###### June 3, 2026
+*   Changed layout of how warnings appear in submission embeds.
+
+* * *
+
 ## v4.0.2
 ###### June 3, 2026
 *   Added links to the thps.run Submissions Hub and Speedrun.com for editing.
