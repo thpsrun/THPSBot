@@ -125,7 +125,7 @@ class EmbedCreator:
                 embed.add_field(
                     name="Warning",
                     value=warning,
-                    inline=True,
+                    inline=False,
                 )
 
         return embed
