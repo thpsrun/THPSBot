@@ -14,6 +14,7 @@ from thpsbot.helpers.config_helper import (
     SUBMISSIONS_LIST,
     THPS_RUN_API,
     THPS_RUN_KEY,
+    THPS_RUN_SITE,
 )
 from thpsbot.helpers.embed_helper import EmbedCreator
 from thpsbot.helpers.json_helper import JsonHelper
@@ -59,14 +60,18 @@ class THPSRunCog(
         if not run.players:
             return None
 
-        THPS_RUN = THPS_RUN_API.split("/api/")[0]
         resp = await AIOHTTPHelper.get(
-            url=f"{THPS_RUN}/players/{run.players[0].id}",
+            url=f"{THPS_RUN_API}/players/{run.players[0].id}",
             headers=self.bot.thpsrun_header,
         )
-        if resp.ok and isinstance(resp.data, dict):
-            return (resp.data.get("player") or {}).get("pfp")
-        return None
+        if not (resp.ok and isinstance(resp.data, dict)):
+            return None
+
+        pfp = (resp.data.get("player") or {}).get("pfp")
+        if not pfp:
+            return None
+
+        return f"{THPS_RUN_SITE}{pfp}"
 
     async def cog_load(self) -> None:
         submit_ch = await self.bot.fetch_channel(SUBMISSION_CHANNEL)
@@ -136,7 +141,7 @@ class THPSRunCog(
                         embed=EmbedCreator.submission_embed(
                             title=run_data.embed_title,
                             subcategory=run.subcategory,
-                            url="",
+                            url=run.url,
                             player=run_data.players,
                             player_pfp=player_pfp,
                             time=run_data.time,

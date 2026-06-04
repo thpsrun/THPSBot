@@ -8,14 +8,21 @@ from dotenv import load_dotenv
 from thpsbot.helpers.config_helper import (
     BOT,
     DEFAULT_IMG,
-    ENV,
-    THPS_RUN_API,
+    THPS_RUN_SITE,
     TTV_TIMEOUT,
 )
 from thpsbot.models import PlayerRunInline
 
-THPS_RUN = THPS_RUN_API.split("/api/")[0]
+THPS_RUN = THPS_RUN_SITE
 load_dotenv()
+
+
+def _pfp_icon(player_pfp: str | None) -> str:
+    if not player_pfp:
+        return DEFAULT_IMG
+    if player_pfp.startswith("http"):
+        return player_pfp
+    return f"{THPS_RUN_SITE}{player_pfp}"
 
 
 class EmbedCreator:
@@ -37,10 +44,7 @@ class EmbedCreator:
         approval: str | None,
         obsolete: bool,
     ) -> Embed:
-        if player_pfp:
-            pfp = THPS_RUN
-        else:
-            pfp = DEFAULT_IMG
+        pfp = _pfp_icon(player_pfp)
 
         embed = Embed(
             title=title,
@@ -50,12 +54,9 @@ class EmbedCreator:
         if approval:
             embed.timestamp = datetime.fromisoformat(approval.replace("Z", "+00:00"))
 
-        if ENV == "primary":
-            embed.set_author(
-                name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
-            )
-        else:
-            embed.set_author(name=player, url="https://speedrun.com/")
+        embed.set_author(
+            name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
+        )
 
         if not obsolete:
             embed.add_field(name="Placement", value=f"{placement}", inline=True)
@@ -89,30 +90,35 @@ class EmbedCreator:
         submitted: str | None,
         warnings: list | None,
     ) -> Embed:
-        if player_pfp:
-            pfp = THPS_RUN
-        else:
-            pfp = DEFAULT_IMG
+        pfp = _pfp_icon(player_pfp)
 
         embed = Embed(
             title=title,
-            url=url,
             color=random.randint(0, 0xFFFFFF),
         )
 
         if submitted:
             embed.timestamp = datetime.fromisoformat(submitted.replace("Z", "+00:00"))
 
-        if ENV == "primary":
-            embed.set_author(
-                name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
-            )
-        else:
-            embed.set_author(name=player, url="https://speedrun.com/")
+        embed.set_author(
+            name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
+        )
 
         embed.set_footer(text=BOT)
 
         embed.description = f"{subcategory}\nTime: {time} ({run_type})"
+
+        embed.add_field(
+            name="thps.run",
+            value="[Submissions](https://thps.run/submissions)",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="Speedrun.com",
+            value=f"[Run Page]({url})",
+            inline=True,
+        )
 
         if warnings:
             for warning in warnings:
@@ -140,10 +146,7 @@ class EmbedCreator:
         else:
             title_name = f"{player} Statistics"
 
-        if player_pfp:
-            pfp = THPS_RUN
-        else:
-            pfp = DEFAULT_IMG
+        pfp = _pfp_icon(player_pfp)
 
         embed = Embed(
             title=f"{title_name}",
@@ -151,12 +154,9 @@ class EmbedCreator:
             timestamp=datetime.now(timezone.utc),
         )
 
-        if ENV == "primary":
-            embed.set_author(
-                name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
-            )
-        else:
-            embed.set_author(name=player, url="https://speedrun.com/")
+        embed.set_author(
+            name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
+        )
 
         if fg_points:
             embed.add_field(name="Main Game Points", value=fg_points, inline=True)
