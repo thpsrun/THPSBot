@@ -17,7 +17,9 @@ THPS_RUN = THPS_RUN_SITE
 load_dotenv()
 
 
-def _pfp_icon(player_pfp: str | None) -> str:
+def _pfp_icon(
+    player_pfp: str | None,
+) -> str:
     if not player_pfp:
         return DEFAULT_IMG
     if player_pfp.startswith("http"):
@@ -43,6 +45,7 @@ class EmbedCreator:
         description: str | None,
         approval: str | None,
         obsolete: bool,
+        wr_reign: str | None = None,
     ) -> Embed:
         pfp = _pfp_icon(player_pfp)
 
@@ -54,9 +57,7 @@ class EmbedCreator:
         if approval:
             embed.timestamp = datetime.fromisoformat(approval.replace("Z", "+00:00"))
 
-        embed.set_author(
-            name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
-        )
+        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
 
         if not obsolete:
             embed.add_field(name="Placement", value=f"{placement}", inline=True)
@@ -66,6 +67,9 @@ class EmbedCreator:
         embed.set_footer(text=BOT)
 
         embed.description = f"{subcategory}\nTime: {time} ({run_type})"
+
+        if wr_reign:
+            embed.description += f"\n{wr_reign}"
 
         if time_delta and placement > 1:
             embed.add_field(name="WR [Delta]", value=time_delta, inline=True)
@@ -100,9 +104,7 @@ class EmbedCreator:
         if submitted:
             embed.timestamp = datetime.fromisoformat(submitted.replace("Z", "+00:00"))
 
-        embed.set_author(
-            name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
-        )
+        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
 
         embed.set_footer(text=BOT)
 
@@ -154,9 +156,7 @@ class EmbedCreator:
             timestamp=datetime.now(timezone.utc),
         )
 
-        embed.set_author(
-            name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp
-        )
+        embed.set_author(name=player, url=f"{THPS_RUN}/player/{player}", icon_url=pfp)
 
         if fg_points:
             embed.add_field(name="Main Game Points", value=fg_points, inline=True)

@@ -208,6 +208,12 @@ class THPSRunCog(
                         delta_fmt = THPSRunHelper.format_time(record["delta_secs"])
                         time_delta = f"{record['wr_time']} [+{delta_fmt}]"
 
+                    wr_reign = None
+                    if record and record.get("is_record"):
+                        wr_reign = await THPSRunHelper.get_wr_reign(
+                            self.bot, run_verify
+                        )
+
                     platform_name = (
                         run_verify.platform.name
                         if isinstance(run_verify.platform, THPSRunPlatform)
@@ -232,6 +238,7 @@ class THPSRunCog(
                             description=run_verify.description,
                             approval=run_verify.v_date,
                             obsolete=run_verify.obsolete,
+                            wr_reign=wr_reign,
                         )
                     )
 

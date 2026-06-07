@@ -99,6 +99,33 @@ class RunImportIssues(BaseModel):
     import_issues: List[dict] = []
 
 
+class THPSRunHistoryPlayer(BaseModel):
+    name: str | None = None
+    nickname: str | None = None
+    pfp: str | None = None
+    gradients: dict | None = None
+
+
+class THPSRunHistoryEntry(BaseModel):
+    run_id: str
+    players: List[THPSRunHistoryPlayer] = []
+    history_time: str | None = None
+    history_time_secs: float | None = None
+    delta: float | None = None
+    video: str | None = None
+    arch_video: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class THPSRunHistory(BaseModel):
+    game: str | None = None
+    category: str | None = None
+    subcategory: str | None = None
+    level: str | None = None
+    entries: List[THPSRunHistoryEntry] = []
+
+
 class CountrySchema(BaseModel):
     id: str
     name: str

@@ -1,3 +1,9 @@
+## v4.1
+###### June 6, 2026
+*   Added a new `Reign Duration` function that, if a run is the WR, will show the length of time elapsed since the last WR.
+
+* * *
+
 ## v4.0.3
 ###### June 3, 2026
 *   Changed layout of how warnings appear in submission embeds.
