@@ -1,13 +1,16 @@
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
-from thpsbot.helpers.config_helper import THPS_RUN_API
+from thpsbot.helpers.config_helper import THPS_RUN_API, THPS_RUN_SITE
+from thpsbot.helpers.duration_helper import format_reign
 from thpsbot.models import (
     THPSRunCategory,
     THPSRunGame,
+    THPSRunHistory,
     THPSRunLevel,
     THPSRunRuns,
 )
@@ -193,3 +196,104 @@ class THPSRunHelper:
             "delta_secs": delta,
             "is_record": delta <= 0,
         }
+
+    @staticmethod
+    async def _resolve_value_slugs(
+        bot: "THPSBot",
+        run: THPSRunRuns,
+    ) -> list[str] | None:
+        """Resolve a run's variable value-IDs to value slugs for the `values=` param."""
+        slugs: list[str] = []
+        for value_id in (run.variables or {}).values():
+            resp = await AIOHTTPHelper.get(
+                url=f"{THPS_RUN_API}/variables/values/{value_id}",
+                headers=bot.thpsrun_header,
+            )
+            if not resp.ok or not isinstance(resp.data, dict):
+                return None
+            slug = resp.data.get("slug")
+            if not slug:
+                return None
+            slugs.append(slug)
+        return slugs
+
+    @staticmethod
+    async def get_wr_reign(
+        bot: "THPSBot",
+        run: THPSRunRuns,
+    ) -> str | None:
+        """Subtext line naming the previous WR holder and how long it lasted, or None."""
+        game = run.game if isinstance(run.game, THPSRunGame) else None
+        category = run.category if isinstance(run.category, THPSRunCategory) else None
+        if not (game and game.slug and category and category.slug):
+            return None
+        level = run.level if isinstance(run.level, THPSRunLevel) else None
+
+        try:
+            slugs = await THPSRunHelper._resolve_value_slugs(bot, run)
+            if slugs is None:
+                return None
+
+            if level and level.slug:
+                url = (
+                    f"{THPS_RUN_API}/history/{game.slug}"
+                    f"/level/{level.slug}/{category.slug}"
+                )
+            else:
+                url = f"{THPS_RUN_API}/history/{game.slug}/category/{category.slug}"
+            if slugs:
+                url += "?values=" + ",".join(slugs)
+
+            resp = await AIOHTTPHelper.get(url=url, headers=bot.thpsrun_header)
+            if not resp.ok or not isinstance(resp.data, dict):
+                return None
+
+            history = THPSRunHistory(**resp.data)
+
+            current = next((e for e in history.entries if e.run_id == run.id), None)
+            if current is None or current.end_date is not None:
+                return None
+
+            candidates = [
+                e
+                for e in history.entries
+                if e.run_id != run.id and e.end_date and e.start_date
+            ]
+            if not candidates:
+                return None
+
+            prev = max(
+                candidates,
+                key=lambda e: (
+                    datetime.fromisoformat(e.end_date),
+                    -(e.history_time_secs or 0.0),
+                    -datetime.fromisoformat(e.start_date).timestamp(),
+                ),
+            )
+            start = datetime.fromisoformat(prev.start_date)
+            end = datetime.fromisoformat(prev.end_date)
+            if end <= start:
+                return None
+
+            name = prev.players[0].name if prev.players else None
+            if not name:
+                return None
+            holder = f"[{name}]({THPS_RUN_SITE}/player/{name})"
+
+            if prev.history_time:
+                link = prev.arch_video or prev.video
+                time_part = (
+                    f" ([{prev.history_time}]({link}))"
+                    if link
+                    else f" ({prev.history_time})"
+                )
+            else:
+                time_part = ""
+
+            return (
+                f"-# Last WR Holder: {holder}{time_part} | "
+                f"{name}'s record lasted {format_reign(start, end)}"
+            )
+        except Exception as e:
+            _log.warning("get_wr_reign failed for %s", run.id, exc_info=e)
+            return None

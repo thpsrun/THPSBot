@@ -24,6 +24,9 @@ from thpsbot.models.thpsrun_api import (
     RunImportIssues,
     THPSRunCategory,
     THPSRunGame,
+    THPSRunHistory,
+    THPSRunHistoryEntry,
+    THPSRunHistoryPlayer,
     THPSRunLevel,
     THPSRunPlatform,
     THPSRunPlayerInline,
@@ -34,6 +37,9 @@ from thpsbot.models.thpsrun_api import (
 __all__ = [
     # THPS.RUN API
     "THPSRunGame",
+    "THPSRunHistory",
+    "THPSRunHistoryEntry",
+    "THPSRunHistoryPlayer",
     "THPSRunCategory",
     "THPSRunLevel",
     "THPSRunPlatform",
