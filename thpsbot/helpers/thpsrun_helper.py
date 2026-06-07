@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING, Any
 
 from thpsbot.helpers.aiohttp_helper import AIOHTTPHelper
 from thpsbot.helpers.config_helper import THPS_RUN_API, THPS_RUN_SITE
-from thpsbot.helpers.duration_helper import format_reign
+from thpsbot.helpers.duration_helper import format_gap, format_reign
 from thpsbot.models import (
+    PlayerRunInline,
     THPSRunCategory,
     THPSRunGame,
     THPSRunHistory,
@@ -218,6 +219,73 @@ class THPSRunHelper:
         return slugs
 
     @staticmethod
+    async def build_leaderboard_url(
+        bot: "THPSBot",
+        run: THPSRunRuns,
+    ) -> str | None:
+        """Build the thps.run frontend leaderboard URL for a run, or None.
+
+        Resolves the run's game/category/level slugs and variable value-slugs into the public
+        leaderboard URL (the same board the run lives on). Value-slugs are emitted in the order the
+        API returns them.
+
+        Arguments:
+            bot (THPSBot): The running bot instance (for the API auth header).
+            run (THPSRunRuns): A run with embedded game/category/level objects.
+
+        Returns:
+            url (str | None): The frontend leaderboard URL, or None if unbuildable.
+        """
+        game = run.game if isinstance(run.game, THPSRunGame) else None
+        category = run.category if isinstance(run.category, THPSRunCategory) else None
+        if not (game and game.slug and category and category.slug):
+            return None
+        level = run.level if isinstance(run.level, THPSRunLevel) else None
+
+        slugs = await THPSRunHelper._resolve_value_slugs(bot, run)
+        if slugs is None:
+            return None
+
+        if level and level.slug:
+            path = f"{game.slug}/ils/{level.slug}/{category.slug}"
+        else:
+            path = f"{game.slug}/{category.slug}"
+        if slugs:
+            path += "/" + "/".join(slugs)
+
+        return f"{THPS_RUN_SITE}/{path}"
+
+    @staticmethod
+    def build_leaderboard_url_inline(
+        run: PlayerRunInline,
+    ) -> str | None:
+        """Build the thps.run leaderboard URL from an inline player-run object.
+
+        Uses the slugs and ordered value_slugs already present in the player-runs payload, so it
+        performs no API calls. Returns None when a required slug is missing.
+
+        Arguments:
+            run (PlayerRunInline): A recent-run entry from a player payload.
+
+        Returns:
+            url (str | None): The frontend leaderboard URL, or None if unbuildable.
+        """
+        game_slug = run.game.slug if run.game else None
+        category_slug = run.category.slug if run.category else None
+        if not (game_slug and category_slug):
+            return None
+        level_slug = run.level.slug if run.level else None
+
+        if level_slug:
+            path = f"{game_slug}/ils/{level_slug}/{category_slug}"
+        else:
+            path = f"{game_slug}/{category_slug}"
+        if run.value_slugs:
+            path += "/" + "/".join(run.value_slugs)
+
+        return f"{THPS_RUN_SITE}/{path}"
+
+    @staticmethod
     async def get_wr_reign(
         bot: "THPSBot",
         run: THPSRunRuns,
@@ -290,9 +358,18 @@ class THPSRunHelper:
             else:
                 time_part = ""
 
+            gap = ""
+            r_secs = run.times.p_time_secs
+            if r_secs is not None and prev.history_time_secs is not None:
+                diff = r_secs - prev.history_time_secs
+                if diff < 0:
+                    formatted = format_gap(diff)
+                    if formatted:
+                        gap = f" [-{formatted}]"
+
             return (
-                f"-# Last WR Holder: {holder}{time_part} | "
-                f"{name}'s record lasted {format_reign(start, end)}"
+                f"\n-# Last WR Holder: {holder}{time_part}{gap}"
+                f"\n-# The last record lasted {format_reign(start, end)}."
             )
         except Exception as e:
             _log.warning("get_wr_reign failed for %s", run.id, exc_info=e)
