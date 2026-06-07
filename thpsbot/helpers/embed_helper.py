@@ -11,7 +11,11 @@ from thpsbot.helpers.config_helper import (
     THPS_RUN_SITE,
     TTV_TIMEOUT,
 )
+from thpsbot.helpers.thpsrun_helper import THPSRunHelper
 from thpsbot.models import PlayerRunInline
+
+SRC_EMOJI = discord.PartialEmoji(name="src", id=1391867987157319882)
+THPSRUN_EMOJI = discord.PartialEmoji(name="thpsrun", id=1391866542500872382)
 
 THPS_RUN = THPS_RUN_SITE
 load_dotenv()
@@ -46,12 +50,13 @@ class EmbedCreator:
         approval: str | None,
         obsolete: bool,
         wr_reign: str | None = None,
-    ) -> Embed:
+        board_url: str | None = None,
+    ) -> tuple[Embed, discord.ui.View]:
         pfp = _pfp_icon(player_pfp)
 
         embed = Embed(
             title=title,
-            url=url,
+            url=board_url or url,
             color=random.randint(0, 0xFFFFFF),
         )
         if approval:
@@ -80,7 +85,24 @@ class EmbedCreator:
         if description:
             embed.add_field(name="Comments", value=description[:1024], inline=False)
 
-        return embed
+        view = discord.ui.View()
+        if board_url:
+            view.add_item(
+                discord.ui.Button(
+                    label="thps.run",
+                    url=board_url,
+                    emoji=THPSRUN_EMOJI,
+                )
+            )
+        view.add_item(
+            discord.ui.Button(
+                label="Speedrun.com",
+                url=url,
+                emoji=SRC_EMOJI,
+            )
+        )
+
+        return embed, view
 
     @staticmethod
     def submission_embed(
@@ -93,7 +115,7 @@ class EmbedCreator:
         run_type: str,
         submitted: str | None,
         warnings: list | None,
-    ) -> Embed:
+    ) -> tuple[Embed, discord.ui.View]:
         pfp = _pfp_icon(player_pfp)
 
         embed = Embed(
@@ -110,18 +132,6 @@ class EmbedCreator:
 
         embed.description = f"{subcategory}\nTime: {time} ({run_type})"
 
-        embed.add_field(
-            name="thps.run",
-            value="[Submissions](https://thps.run/submissions)",
-            inline=True,
-        )
-
-        embed.add_field(
-            name="Speedrun.com",
-            value=f"[Run Page]({url})",
-            inline=True,
-        )
-
         if warnings:
             for warning in warnings:
                 embed.add_field(
@@ -130,7 +140,23 @@ class EmbedCreator:
                     inline=False,
                 )
 
-        return embed
+        view = discord.ui.View()
+        view.add_item(
+            discord.ui.Button(
+                label="Submissions",
+                url="https://thps.run/submissions",
+                emoji=THPSRUN_EMOJI,
+            )
+        )
+        view.add_item(
+            discord.ui.Button(
+                label="SRC Hub",
+                url=url,
+                emoji=SRC_EMOJI,
+            )
+        )
+
+        return embed, view
 
     @staticmethod
     def player_embed(
@@ -167,7 +193,10 @@ class EmbedCreator:
         embed.add_field(name="Total Runs", value=total_runs or 0, inline=True)
         embed.set_footer(text=BOT)
 
-        def _render(runs: list[PlayerRunInline], header: str) -> None:
+        def _render(
+            runs: list[PlayerRunInline],
+            header: str,
+        ) -> None:
             if not runs:
                 return
             embed.add_field(name=header, value="", inline=False)
@@ -178,9 +207,19 @@ class EmbedCreator:
                 elif game == "THPS12":
                     game = "THPS1+2"
                 subcat = run.subcategory or ""
+                label = f"{game} - {subcat} in {run.time}"
+                board = THPSRunHelper.build_leaderboard_url_inline(run)
+                if board and run.url:
+                    line = f"{index}. [{label}]({board}) ([SRC]({run.url}))"
+                elif board:
+                    line = f"{index}. [{label}]({board})"
+                elif run.url:
+                    line = f"{index}. [{label}]({run.url})"
+                else:
+                    line = f"{index}. {label}"
                 embed.add_field(
                     name="",
-                    value=f"{index}. [{game} - {subcat} in {run.time}]({run.url})",
+                    value=line,
                     inline=False,
                 )
 
@@ -235,7 +274,7 @@ class EmbedCreator:
                 discord.ui.Button(
                     label="Speedrun.com",
                     url=f"https://speedrun.com/{src_username}",
-                    emoji=discord.PartialEmoji(name="src", id=1391867987157319882),
+                    emoji=SRC_EMOJI,
                 )
             )
 
@@ -243,7 +282,7 @@ class EmbedCreator:
                 discord.ui.Button(
                     label="thps.run",
                     url=f"https://thps.run/player/{src_username}",
-                    emoji=discord.PartialEmoji(name="thpsrun", id=1391866542500872382),
+                    emoji=THPSRUN_EMOJI,
                 )
             )
 

@@ -137,18 +137,21 @@ class THPSRunCog(
                     warnings = await THPSRunHelper.get_import_issues(self.bot, run.id)
                     player_pfp = await self._fetch_player_pfp(run)
 
+                    board_url = await THPSRunHelper.build_leaderboard_url(self.bot, run)
+                    embed, view = EmbedCreator.submission_embed(
+                        title=run_data.embed_title,
+                        subcategory=run.subcategory,
+                        url=run.url,
+                        player=run_data.players,
+                        player_pfp=player_pfp,
+                        time=run_data.time,
+                        run_type=run_data.run_type,
+                        submitted=run.date,
+                        warnings=warnings,
+                    )
                     embed_msg = await self.submit_channel.send(
-                        embed=EmbedCreator.submission_embed(
-                            title=run_data.embed_title,
-                            subcategory=run.subcategory,
-                            url=run.url,
-                            player=run_data.players,
-                            player_pfp=player_pfp,
-                            time=run_data.time,
-                            run_type=run_data.run_type,
-                            submitted=run.date,
-                            warnings=warnings,
-                        )
+                        embed=embed,
+                        view=view,
                     )
 
                     self.submissions.update(
@@ -221,25 +224,31 @@ class THPSRunCog(
                     )
                     player_pfp = await self._fetch_player_pfp(run_verify)
 
+                    board_url = await THPSRunHelper.build_leaderboard_url(
+                        self.bot, run_verify
+                    )
+                    embed, view = EmbedCreator.approved_embed(
+                        title=run_data.embed_title,
+                        subcategory=run_verify.subcategory or "",
+                        url=run_verify.url,
+                        player=run_data.players,
+                        player_pfp=player_pfp,
+                        placement=run_verify.place,
+                        points=run_verify.points or 0,
+                        platform=platform_name,
+                        time=run_data.time,
+                        time_delta=time_delta,
+                        completed_runs=None,
+                        run_type=run_data.run_type,
+                        description=run_verify.description,
+                        approval=run_verify.v_date,
+                        obsolete=run_verify.obsolete,
+                        wr_reign=wr_reign,
+                        board_url=board_url,
+                    )
                     await self.pb_channel.send(
-                        embed=EmbedCreator.approved_embed(
-                            title=run_data.embed_title,
-                            subcategory=run_verify.subcategory or "",
-                            url=run_verify.url,
-                            player=run_data.players,
-                            player_pfp=player_pfp,
-                            placement=run_verify.place,
-                            points=run_verify.points or 0,
-                            platform=platform_name,
-                            time=run_data.time,
-                            time_delta=time_delta,
-                            completed_runs=None,
-                            run_type=run_data.run_type,
-                            description=run_verify.description,
-                            approval=run_verify.v_date,
-                            obsolete=run_verify.obsolete,
-                            wr_reign=wr_reign,
-                        )
+                        embed=embed,
+                        view=view,
                     )
 
                     embed_msg = await self.submit_channel.fetch_message(
@@ -449,24 +458,28 @@ class THPSRunCog(
 
                     player_pfp = await self._fetch_player_pfp(run)
 
+                    board_url = await THPSRunHelper.build_leaderboard_url(self.bot, run)
+                    embed, view = EmbedCreator.approved_embed(
+                        title=run_data.embed_title,
+                        subcategory=run.subcategory,
+                        url=run.url,
+                        player=run_data.players,
+                        player_pfp=player_pfp,
+                        placement=run.place,
+                        points=run.points or 0,
+                        platform=platform_name,
+                        time=run_data.time,
+                        time_delta=time_delta,
+                        completed_runs=None,
+                        run_type=run_data.run_type,
+                        description=run.description,
+                        approval=run.v_date,
+                        obsolete=run.obsolete,
+                        board_url=board_url,
+                    )
                     await interaction.response.send_message(
-                        embed=EmbedCreator.approved_embed(
-                            title=run_data.embed_title,
-                            subcategory=run.subcategory,
-                            url=run.url,
-                            player=run_data.players,
-                            player_pfp=player_pfp,
-                            placement=run.place,
-                            points=run.points or 0,
-                            platform=platform_name,
-                            time=run_data.time,
-                            time_delta=time_delta,
-                            completed_runs=None,
-                            run_type=run_data.run_type,
-                            description=run.description,
-                            approval=run.v_date,
-                            obsolete=run.obsolete,
-                        )
+                        embed=embed,
+                        view=view,
                     )
             else:
                 await interaction.response.send_message(
@@ -523,6 +536,7 @@ class THPSRunCog(
                     else "new"
                 ),
                 "place": 999,
+                "approver_id": src.status.examiner,
                 "variable_values": src.values,
                 "description": src.comment,
             }

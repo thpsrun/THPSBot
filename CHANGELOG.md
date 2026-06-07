@@ -1,3 +1,13 @@
+## v4.2
+###### June 7, 2026
+*   Added time delta to the `Reign Duration` portion of approved embeds.
+*   Added buttons to take you to Speedrun.com and thps.run (thps.run is now the default/first link seen).
+    *   Submissions will take you to the thps.run or SRC hubs.
+
+*   Fixed an issue where `approver` was not forwarded to the thps.run API, resulting in no approver being associated with the run.
+
+* * *
+
 ## v4.1
 ###### June 6, 2026
 *   Added a new `Reign Duration` function that, if a run is the WR, will show the length of time elapsed since the last WR.

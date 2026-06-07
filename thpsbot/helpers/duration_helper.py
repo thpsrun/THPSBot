@@ -32,3 +32,19 @@ def format_reign(
         return phrase or "less than a minute"
 
     return _join_parts([(rd.years, "year"), (rd.months, "month"), (rd.days, "day")])
+
+
+def format_gap(
+    seconds: float,
+) -> str:
+    """Compact 'Xh Ym Zs Wms' magnitude of a delta, dropping zero parts ("" if zero)."""
+    total_ms = int(round(abs(seconds) * 1000))
+    hours, rem = divmod(total_ms, 3_600_000)
+    minutes, rem = divmod(rem, 60_000)
+    secs, ms = divmod(rem, 1000)
+    parts = [
+        f"{value}{suffix}"
+        for value, suffix in ((hours, "h"), (minutes, "m"), (secs, "s"), (ms, "ms"))
+        if value
+    ]
+    return " ".join(parts)
