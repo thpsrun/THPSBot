@@ -30,7 +30,6 @@ class AIOHTTPHelper:
     _session: aiohttp.ClientSession | None = None
     _host_failures: dict[str, int] = {}
     _max_failures: int = 20
-    _reconnecting: bool = False
 
     @staticmethod
     def _extract_host(
@@ -61,6 +60,8 @@ class AIOHTTPHelper:
         headers: dict[str, str] | None,
         data: dict[str, Any] | None = None,
         timeout: int = 10,
+        raw: bool = False,
+        _retry: bool = True,
     ) -> AIOHTTPResponse:
         if cls._session is None or cls._session.closed:
             await cls.init_session()
@@ -80,11 +81,13 @@ class AIOHTTPHelper:
                 cls._host_failures[host] = 0
 
                 status = response.status
-                response_data = None
+                response_data: Any | None = None
 
+                if raw:
+                    response_data = await response.read()
                 # Both APIs use JSON as the formatting, so if it doesn't return JSON, then
                 # there is an issue with the API itself.
-                if response.content_type == "application/json":
+                elif response.content_type == "application/json":
                     response_data = await response.json()
 
                 return AIOHTTPResponse(status=status, data=response_data)
@@ -115,16 +118,20 @@ class AIOHTTPHelper:
                 data=None,
             )
         except ClientConnectionError:
-            if cls._reconnecting:
-                cls._reconnecting = False
+            if not _retry:
                 return AIOHTTPResponse(status=503, data=None)
 
-            cls._reconnecting = True
             cls._session = None
             await cls.init_session()
-            result = await cls._request(method, url, headers, data, timeout)
-            cls._reconnecting = False
-            return result
+            return await cls._request(
+                method,
+                url,
+                headers,
+                data,
+                timeout,
+                raw=raw,
+                _retry=False,
+            )
 
     @classmethod
     async def get(
@@ -134,6 +141,25 @@ class AIOHTTPHelper:
         timeout: int = 10,
     ) -> AIOHTTPResponse:
         return await cls._request("GET", url, headers, timeout=timeout)
+
+    @classmethod
+    async def get_bytes(
+        cls,
+        url: str,
+        headers: dict[str, str] | None,
+        timeout: int = 10,
+    ) -> AIOHTTPResponse:
+        """Perform a GET request and return the response body as raw bytes.
+
+        Arguments:
+            url (str): The fully-qualified request URL.
+            headers (dict[str, str] | None): Optional request headers.
+            timeout (int): Total request timeout in seconds.
+
+        Returns:
+            response (AIOHTTPResponse): `data` holds `bytes | None` (the raw body, or None).
+        """
+        return await cls._request("GET", url, headers, timeout=timeout, raw=True)
 
     @classmethod
     async def post(

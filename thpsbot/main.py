@@ -15,9 +15,9 @@ from thpsbot.helpers.config_helper import (
     ROLES_LIST,
     SENTRY_SDN,
     THPS_RUN_KEY,
+    validate_config,
 )
 from thpsbot.helpers.embed_helper import EmbedCreator
-from thpsbot.helpers.setup_json import setup_json
 from thpsbot.helpers.setup_logging import setup_logging
 
 
@@ -28,7 +28,6 @@ class BotContext(EmbedCreator, commands.Context):
 class THPSBot(commands.Bot):
     def __init__(self, **kwargs):
         setup_logging()
-        setup_json()
 
         intent = Intents.default()
         intent.message_content = True
@@ -53,8 +52,7 @@ class THPSBot(commands.Bot):
         if ENV == "primary":
             sentry_sdk.init(
                 dsn=SENTRY_SDN,
-                send_default_pii=True,
-                traces_sample_rate=1.0,
+                traces_sample_rate=0.1,
             )
         else:
             self._log.info("Currently in dev mode; skipping Sentry...")
@@ -68,11 +66,6 @@ class THPSBot(commands.Bot):
 
         self.base = BaseCommands(self)
         self.errorchannel = await self.fetch_channel(ERROR_CHANNEL)
-
-        self.tree.clear_commands(guild=discord.Object(id=GUILD_ID))
-        self.tree.clear_commands(guild=None)
-        await self.tree.sync(guild=discord.Object(id=GUILD_ID))
-        await self.tree.sync(guild=None)
 
         await self.add_cog(self.base)
 
@@ -95,6 +88,10 @@ class BaseCommands(commands.Cog):
 
 
 def main():
+    # Fail fast with a readable explanation if the install is misconfigured,
+    # rather than dying mid-cog-load on an opaque fetch_channel(0) error.
+    validate_config()
+
     bot = THPSBot()
     bot.run(DISCORD_KEY)
 

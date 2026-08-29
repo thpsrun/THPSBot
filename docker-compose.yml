@@ -14,12 +14,15 @@ services:
     env_file:
       - .env
     volumes:
-      - .:/app:rw
+      - .:/app:z
       - logs:/app/logs:rw
       - json:/app/json:rw
     networks:
       - thpsbot
+      - backend_thpsrun
 
 networks:
   thpsbot:
     driver: bridge
+  backend_thpsrun:
+    external: true

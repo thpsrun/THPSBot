@@ -1,5 +1,6 @@
 import os
 import random
+import re
 from io import BytesIO
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -19,6 +20,8 @@ from thpsbot.helpers.task_helper import TaskHelper
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
 
+_FILENAME_RE = re.compile(r"^[A-Za-z0-9 _-]+$")
+
 
 async def setup(bot: "THPSBot"):
     await bot.add_cog(ActivityCog(bot))
@@ -26,6 +29,167 @@ async def setup(bot: "THPSBot"):
 
 async def teardown(bot: "THPSBot"):
     await bot.remove_cog(name="GameActivities")  # type: ignore
+
+
+class StatusConfirmView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "ActivityCog",
+        status: str,
+        force: bool,
+    ) -> None:
+        super().__init__(timeout=30)
+        self.cog = cog
+        self.status = status
+        self.force = force
+        self.message: discord.InteractionMessage | None = None
+
+    async def on_timeout(
+        self,
+    ) -> None:
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                child.disabled = True
+
+        if self.message is not None:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+    @discord.ui.button(
+        label="Confirm",
+        style=discord.ButtonStyle.success,
+    )
+    async def confirm(
+        self,
+        interaction: Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        """Add the status, persist it, and optionally switch presence."""
+        if self.status not in self.cog.gameslist:
+            self.cog.gameslist.append(self.status)
+            JsonHelper.save_json(self.cog.gameslist, "json/statuses.json")
+
+        if self.force:
+            await self.cog.bot.change_presence(activity=Game(name=self.status))
+
+        self.stop()
+        await interaction.response.edit_message(
+            content=f"Status added: `{self.status}`",
+            view=None,
+        )
+
+    @discord.ui.button(
+        label="Cancel",
+        style=discord.ButtonStyle.secondary,
+    )
+    async def cancel(
+        self,
+        interaction: Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        """Cancel the add without touching the status list."""
+        self.stop()
+        await interaction.response.edit_message(
+            content="Cancelled.",
+            view=None,
+        )
+
+
+class PfpNameModal(discord.ui.Modal):
+    filename: discord.ui.TextInput = discord.ui.TextInput(
+        label="Filename",
+        placeholder="Letters, digits, spaces, _ and - only",
+        max_length=64,
+        required=True,
+    )
+
+    def __init__(
+        self,
+        cog: "ActivityCog",
+        image_url: str,
+        file_extension: str,
+    ) -> None:
+        super().__init__(title="Name & save profile picture")
+        self.cog = cog
+        self.image_url = image_url
+        self.file_extension = file_extension
+
+    async def on_submit(
+        self,
+        interaction: Interaction,
+    ) -> None:
+        """Validate the name, download, resize, and save the pfp."""
+        await interaction.response.defer(thinking=True, ephemeral=True)
+
+        name = self.filename.value.strip()
+        if not _FILENAME_RE.match(name):
+            await interaction.followup.send(
+                "Invalid filename. Use only letters, digits, spaces, `_` and `-`.",
+                ephemeral=True,
+            )
+            return
+
+        response = await AIOHTTPHelper.get_bytes(
+            url=self.image_url,
+            headers=None,
+        )
+        if not response.ok or not isinstance(response.data, bytes):
+            await interaction.followup.send(
+                "Image could not be downloaded.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            image = Image.open(BytesIO(response.data))
+            resized = image.resize((128, 128))
+            resized.save(f"pfps/{name}{self.file_extension}")
+        except Exception as e:
+            self.cog.bot._log.error(e)
+            await interaction.followup.send(
+                "Image could not be saved.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.followup.send(
+            f"{name} has been successfully added!",
+            ephemeral=True,
+        )
+
+
+class PfpNameView(discord.ui.View):
+    def __init__(
+        self,
+        cog: "ActivityCog",
+        image_url: str,
+        file_extension: str,
+    ) -> None:
+        super().__init__(timeout=120)
+        self.cog = cog
+        self.image_url = image_url
+        self.file_extension = file_extension
+
+    @discord.ui.button(
+        label="Name & save",
+        style=discord.ButtonStyle.primary,
+    )
+    async def name_and_save(
+        self,
+        interaction: Interaction,
+        button: discord.ui.Button,
+    ) -> None:
+        """Open the filename modal in response to the button click."""
+        self.stop()
+        await interaction.response.send_modal(
+            PfpNameModal(
+                cog=self.cog,
+                image_url=self.image_url,
+                file_extension=self.file_extension,
+            )
+        )
 
 
 class ActivityCog(
@@ -175,46 +339,18 @@ class ActivityCog(
                 )
                 return
 
+            view = StatusConfirmView(
+                cog=self,
+                status=status,
+                force=bool(force),
+            )
             await interaction.response.send_message(
-                f"Are you sure you want me to set the status to:\n`{status}`\n"
-                "Reply with `yes` to confirm.",
+                f"Are you sure you want me to add the status:\n`{status}`?",
+                view=view,
                 ephemeral=True,
             )
 
-            def _check(m: discord.Message) -> bool:
-                return m.author == interaction.user and m.channel == interaction.channel
-
-            try:
-                msg = await self.bot.wait_for(
-                    "message",
-                    check=_check,
-                    timeout=10,
-                )
-                if msg.content.lower() != "yes":
-                    await interaction.followup.send(
-                        "Cancelled.",
-                        ephemeral=True,
-                    )
-
-                await msg.delete()
-            except Exception:
-                await interaction.followup.send(
-                    "No confirmation received. Cancelled.",
-                    ephemeral=True,
-                )
-                return
-
-            if force:
-                await self.bot.change_presence(activity=Game(name=status))
-
-                await interaction.followup.send(
-                    f"Status updated to: `{status}`",
-                    ephemeral=True,
-                )
-
-            if status not in self.gameslist:
-                self.gameslist.append(status)
-                JsonHelper.save_json(self.gameslist, "json/statuses.json")
+            view.message = await interaction.original_response()
         elif action.value == "remove":
             if status in self.gameslist:
                 self.gameslist.remove(status)
@@ -264,89 +400,55 @@ class ActivityCog(
         image_url: str | None,
         pfp: str | None,
     ) -> None:
-        await interaction.response.defer(
-            thinking=True,
-            ephemeral=True,
-        )
-
         if action.value == "add":
             if not image_url:
-                await interaction.followup.send(
+                await interaction.response.send_message(
                     "`image_url` is required for adding.",
                     ephemeral=True,
                 )
                 return
 
             url_parts = urlparse(image_url)
-            file_extension = os.path.splitext(url_parts.path)[1]
+            file_extension = os.path.splitext(url_parts.path)[1].lower()
 
-            if file_extension.lower() in (".jpg", ".png"):
-                response = await AIOHTTPHelper.get(
-                    url=image_url,
-                    headers=None,
-                )
-
-                if not response.ok:
-                    await interaction.followup.send(
-                        "Image could not be downloaded.",
-                        ephemeral=True,
-                    )
-                    return
-
-                await interaction.followup.send(
-                    "What do you want the name of the filename to be?",
-                    ephemeral=True,
-                )
-
-                def _check(m: discord.Message) -> bool:
-                    return (
-                        m.author == interaction.user
-                        and m.channel == interaction.channel
-                    )
-
-                try:
-                    msg = await self.bot.wait_for(
-                        "message",
-                        check=_check,
-                        timeout=10,
-                    )
-                    new_filename = msg.content
-                    if ".." in new_filename:
-                        raise Exception("Illegal filename detected.")
-
-                    await msg.delete()
-
-                    if response.data is not None:
-                        image = Image.open(BytesIO(response.data))
-                        image = image.resize((128, 128))
-                        image.save(f"pfps/{new_filename}{file_extension}")
-
-                    await interaction.followup.send(
-                        f"{new_filename} has been successfully added!",
-                        ephemeral=True,
-                    )
-                except Exception as e:
-                    await interaction.followup.send(
-                        "No confirmation received. Cancelled.",
-                        ephemeral=True,
-                    )
-                    self.bot._log.error(e)
-                    return
-        else:
-            if not pfp:
-                pfp = random.choice(os.listdir("pfps/"))
-
-            if not self.bot.user:
-                await interaction.followup.send(
-                    "Bot user not available.",
+            if file_extension not in (".jpg", ".png"):
+                await interaction.response.send_message(
+                    "Only `.jpg` and `.png` images are supported.",
                     ephemeral=True,
                 )
                 return
 
-            with open(f"pfps/{pfp}", "rb") as image:
-                await self.bot.user.edit(avatar=image.read())
-
-            await interaction.followup.send(
-                f"Successfully changed to {pfp}!",
+            view = PfpNameView(
+                cog=self,
+                image_url=image_url,
+                file_extension=file_extension,
+            )
+            await interaction.response.send_message(
+                "Click below to name and save this profile picture.",
+                view=view,
                 ephemeral=True,
             )
+            return
+
+        await interaction.response.defer(
+            thinking=True,
+            ephemeral=True,
+        )
+
+        if not pfp:
+            pfp = random.choice(os.listdir("pfps/"))
+
+        if not self.bot.user:
+            await interaction.followup.send(
+                "Bot user not available.",
+                ephemeral=True,
+            )
+            return
+
+        with open(f"pfps/{pfp}", "rb") as avatar_file:
+            await self.bot.user.edit(avatar=avatar_file.read())
+
+        await interaction.followup.send(
+            f"Successfully changed to {pfp}!",
+            ephemeral=True,
+        )

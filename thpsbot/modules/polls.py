@@ -1,6 +1,4 @@
-import re
-import zoneinfo
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import discord
@@ -11,10 +9,24 @@ from discord.ext.commands import Cog
 from thpsbot.helpers.auth_helper import is_admin_user
 from thpsbot.helpers.config_helper import GUILD_ID, REMINDER_LIST
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.poll_helper import (
+    BOT_TIMEZONE,
+    parse_timestamp,
+    replace_end_time,
+    summarize_votes,
+    truncate_thread_name,
+    truncate_title_suffix,
+)
 from thpsbot.helpers.task_helper import TaskHelper
 
 if TYPE_CHECKING:
     from thpsbot.main import THPSBot
+
+_BAD_TIMESTAMP_HINT = (
+    "is not a valid timestamp. Use https://hammertime.cyou for an easier "
+    "conversion. Use America/New York as timezone."
+)
+_MAX_POLL_FAILURES = 5
 
 
 async def setup(bot: "THPSBot"):
@@ -27,31 +39,60 @@ async def teardown(bot: "THPSBot"):
 
 class PrivatePollView(discord.ui.View):
     def __init__(
-        self, *, options: list[str], votes: dict[int, str] | None = None
+        self,
+        *,
+        options: list[str],
+        cog: "PollCog",
+        votes: dict[str, str] | None = None,
     ) -> None:
         super().__init__(timeout=None)
         self.options = options
-        self.votes: dict[int, str] = votes or {}
+        self.cog = cog
+        # Votes are keyed by str(user_id) so live state matches what is restored
+        # from reminders.json. The metadata shares this exact dict instance.
+        self.votes: dict[str, str] = {} if votes is None else votes
 
         for idx, label in enumerate(options, start=1):
-            cid = f"priv_poll_btn_{idx}"
             self.add_item(
                 PrivatePollButton(
                     label=label,
-                    custom_id=cid,
+                    custom_id=f"priv_poll_btn_{idx}",
                     row=(idx - 1) // 5,
                 )
             )
 
+    def record_vote(
+        self,
+        user_id: int,
+        choice: str,
+    ) -> str | None:
+        """Record a user's vote, returning their previous choice if any.
+
+        Arguments:
+            user_id (int): The voting member's Discord id.
+            choice (str): The option label they selected.
+
+        Returns:
+            prev (str | None): The member's previous choice, or None if new.
+        """
+        key = str(user_id)
+        prev = self.votes.get(key)
+        self.votes[key] = choice
+        return prev
+
     def summary(self) -> str:
-        counts = {opt: 0 for opt in self.options}
-        for choice in self.votes.values():
-            counts[choice] += 1
-        return "\n".join(f"**{opt}** - {n}" for opt, n in counts.items())
+        """Return the per-option vote tally as display text."""
+        return summarize_votes(self.options, self.votes)
 
 
 class PrivatePollButton(discord.ui.Button):
-    def __init__(self, *, label: str, custom_id: str, row: int):
+    def __init__(
+        self,
+        *,
+        label: str,
+        custom_id: str,
+        row: int,
+    ) -> None:
         super().__init__(
             label=label,
             style=discord.ButtonStyle.primary,
@@ -60,26 +101,21 @@ class PrivatePollButton(discord.ui.Button):
         )
         self.choice = label
 
-    async def callback(self, interaction: Interaction):
+    async def callback(
+        self,
+        interaction: Interaction,
+    ) -> None:
+        """Record the click's vote in shared state, persist it, and confirm."""
         assert isinstance(self.view, PrivatePollView)
         view: PrivatePollView = self.view
-        uid = interaction.user.id
-        choice = self.choice
-        prev = view.votes.get(uid)
-        view.votes[uid] = choice
+        prev = view.record_vote(interaction.user.id, self.choice)
 
-        store: dict[str, dict] = JsonHelper.load_json("json/reminders.json")
-        if interaction.message is None:
-            return
-        poll_data = store.get(str(interaction.message.id))
-        if poll_data:
-            poll_data["votes"][str(uid)] = choice
-            JsonHelper.save_json(store, "json/reminders.json")
+        view.cog.save_reminders()
 
         poll_message = (
-            f"Your vote for **{choice}** has been recorded."
+            f"Your vote for **{self.choice}** has been recorded."
             if prev is None
-            else f"Vote changed to **{choice}** (was **{prev}**)."
+            else f"Vote changed to **{self.choice}** (was **{prev}**)."
         )
         await interaction.response.send_message(
             poll_message,
@@ -106,6 +142,7 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             if metadata["type"] == "private":
                 view = PrivatePollView(
                     options=metadata["options"],
+                    cog=self,
                     votes=metadata["votes"],
                 )
 
@@ -120,18 +157,46 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
 
         self._check_reminders.cancel()
 
+    def save_reminders(self) -> None:
+        JsonHelper.save_json(self.reminder_list, "json/reminders.json")
+
+    def _resolve_poll_channel(
+        self,
+        message_id: str,
+    ) -> discord.TextChannel | None:
+        """Resolve the text channel a stored poll lives in from its metadata.
+
+        Arguments:
+            message_id (str): The poll's message id, a key into the reminder list.
+
+        Returns:
+            channel (discord.TextChannel | None): The poll's channel, or None when
+                the guild/channel no longer resolves to a text channel.
+        """
+        guild = self.bot.get_guild(GUILD_ID)
+        if guild is None:
+            return None
+
+        channel = guild.get_channel(int(self.reminder_list[message_id]["channel"]))
+        if not isinstance(channel, discord.TextChannel):
+            return None
+
+        return channel
+
     @tasks.loop(seconds=30)
     @TaskHelper.safe_task
     async def _check_reminders(self) -> None:
         await self.reminders()
 
     async def reminders(self) -> None:
+        """Finalize any due polls, DM their reports, and prune them from state."""
         if len(self.reminder_list) == 0:
             return
 
-        current_time = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
+        current_time = datetime.now(BOT_TIMEZONE)
 
-        remove_polls = []
+        remove_polls: list[str] = []
+        changed = False
         for reminder, metadata in self.reminder_list.items():
             if metadata["time"] is None:
                 remove_polls.append(reminder)
@@ -169,12 +234,10 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
                     react_counts: dict[str, dict] = {}
                     for reaction in message.reactions:
                         emoji_str = str(reaction.emoji)
-                        if emoji_str in self.reminder_list[reminder]["reactions"]:
+                        if emoji_str in metadata["reactions"]:
                             count = reaction.count - (1 if reaction.me else 0)
                             react_counts[emoji_str] = {
-                                "name": self.reminder_list[reminder]["reactions"][
-                                    emoji_str
-                                ],
+                                "name": metadata["reactions"][emoji_str],
                                 "count": count,
                             }
 
@@ -187,8 +250,10 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
                         ]
                         report = "\n".join(lines)
 
-                    embed.title = (embed.title or "Poll") + " (ENDED)"
-                    await message.edit(embed=embed)
+                    title = embed.title or "Poll"
+                    if "(ENDED" not in title:
+                        embed.title = truncate_title_suffix(title, " (ENDED)")
+                        await message.edit(embed=embed)
 
                 try:
                     await author.send(
@@ -213,13 +278,27 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
                     self.active_private_polls.pop(int(reminder), None)
 
                 remove_polls.append(reminder)
-            except AttributeError as e:
-                self.bot._log.error(e)
+            except (discord.DiscordServerError, TimeoutError):
+                self.bot._log.warning(
+                    f"Transient error finalizing poll {reminder}, will retry next loop"
+                )
+            except Exception:
+                self.bot._log.exception(f"Failed to finalize poll {reminder}")
+                metadata["failures"] = metadata.get("failures", 0) + 1
+                changed = True
+                if metadata["failures"] >= _MAX_POLL_FAILURES:
+                    self.bot._log.error(
+                        f"Removing poll {reminder} after {_MAX_POLL_FAILURES} failures"
+                    )
+                    if metadata["type"] == "private":
+                        self.active_private_polls.pop(int(reminder), None)
+                    remove_polls.append(reminder)
 
         for poll in remove_polls:
             self.reminder_list.pop(poll, None)
 
-        JsonHelper.save_json(self.reminder_list, "json/reminders.json")
+        if remove_polls or changed:
+            self.save_reminders()
 
     ###########################################################################
     # poll_group Commands
@@ -250,18 +329,18 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
     async def public_poll(
         self,
         interaction: Interaction,
-        message: str,
+        message: app_commands.Range[str, 1, 1024],
         time: str | None,
-        o1_emoji: str,
-        o1_name: str,
-        o2_emoji: str,
-        o2_name: str,
-        o3_emoji: str | None,
-        o3_name: str | None,
-        o4_emoji: str | None,
-        o4_name: str | None,
-        o5_emoji: str | None,
-        o5_name: str | None,
+        o1_emoji: app_commands.Range[str, 1, 100],
+        o1_name: app_commands.Range[str, 1, 100],
+        o2_emoji: app_commands.Range[str, 1, 100],
+        o2_name: app_commands.Range[str, 1, 100],
+        o3_emoji: app_commands.Range[str, 1, 100] | None,
+        o3_name: app_commands.Range[str, 1, 100] | None,
+        o4_emoji: app_commands.Range[str, 1, 100] | None,
+        o4_name: app_commands.Range[str, 1, 100] | None,
+        o5_emoji: app_commands.Range[str, 1, 100] | None,
+        o5_name: app_commands.Range[str, 1, 100] | None,
         thread: bool = False,
     ) -> None:
         await interaction.response.defer(thinking=True, ephemeral=True)
@@ -270,20 +349,21 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
         long_tag: str = ""
 
         if time:
-            # This is the usual RegEx syntax associated with Discord timestamp messages.
-            matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
-            if not matched_time:
+            parsed = parse_timestamp(time)
+            if parsed is None:
                 await interaction.followup.send(
-                    f"{time} is not a valid timestamp. Use https://hammertime.cyou "
-                    + "for an easier conversion. Use America/New York as timezone.",
+                    f"{time} {_BAD_TIMESTAMP_HINT}",
                     ephemeral=True,
                 )
                 return
 
-            timestamp = int(matched_time.group(1))
-            utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-            local_time = utc_dt.astimezone(zoneinfo.ZoneInfo("America/New_York"))
-            long_tag = f"<t:{timestamp}:F>"
+            local_time, long_tag = parsed
+            if local_time <= datetime.now(BOT_TIMEZONE):
+                await interaction.followup.send(
+                    f"{time} is in the past. Pick a time in the future for the poll to end.",
+                    ephemeral=True,
+                )
+                return
 
         if interaction.channel is None or not isinstance(
             interaction.channel, discord.TextChannel
@@ -294,13 +374,6 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             )
             return
 
-        poll = await interaction.channel.send(
-            embed=discord.Embed(
-                title=f"Poll: {message}",
-            ),
-        )
-        embed = poll.embeds[0]
-
         options: list[tuple[str | None, str | None]] = [
             (o1_emoji, o1_name),
             (o2_emoji, o2_name),
@@ -309,54 +382,74 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             (o5_emoji, o5_name),
         ]
 
-        labeler: list[str] = []
         reactions: dict[str, str] = {}
-        for emoji, label in options:
+        labeler: list[str] = []
+        for emoji, name in options:
             if emoji is None:
                 continue
 
-            await poll.add_reaction(emoji)
+            if emoji in reactions:
+                await interaction.followup.send(
+                    f"{emoji} is used by more than one option. Give each option a unique emoji.",
+                    ephemeral=True,
+                )
+                return
 
-            label = label or "---"
+            label = name or "---"
             reactions[emoji] = label
-            labeler.append(f"{emoji} = **{label}**\n")
+            labeler.append(f"{emoji} = **{label}**")
 
+        # Build the full description up front so posting is a single send; only the
+        # thread-link edit remains (it needs the thread's jump_url).
+        parts: list[str] = [f"**{message}**"]
         if time:
-            embed.description = f"This poll ends at {long_tag}!\n"
-            embed.description = embed.description + "\n".join(labeler)
+            parts.append(f"This poll ends at {long_tag}!")
+        parts.append("\n".join(labeler))
+        description = "\n\n".join(parts)
 
-            self.reminder_list.update(
-                {
-                    str(poll.id): {
-                        "type": "public",
-                        "time": str(local_time),
-                        "channel": interaction.channel.id,
-                        "author": interaction.user.id,
-                        "reactions": reactions,
-                    }
-                }
+        embed = discord.Embed(title="Poll", description=description)
+        poll = await interaction.channel.send(embed=embed)
+
+        # Reactions are added after posting, so an invalid emoji only fails here.
+        try:
+            for emoji in reactions:
+                await poll.add_reaction(emoji)
+        except discord.HTTPException:
+            # Covers both an invalid emoji (400) and missing reaction perms (403).
+            await poll.delete()
+            await interaction.followup.send(
+                f"Couldn't react with {emoji} (invalid emoji, or I lack permission). "
+                + "The poll was cancelled.",
+                ephemeral=True,
             )
-        else:
-            embed.description = "\n".join(labeler)
-
-        await poll.edit(embed=embed)
+            return
 
         if thread:
-            discussion = await poll.create_thread(
-                name=f"{message} - Discussion",
-            )
-            embed.description = (
-                embed.description or ""
-            ) + f"\n[Discussion]({discussion.jump_url})"
+            discussion = await poll.create_thread(name=truncate_thread_name(message))
+            embed.description = f"{description}\n\n[Discussion]({discussion.jump_url})"
             await poll.edit(embed=embed)
 
-        JsonHelper.save_json(self.reminder_list, "json/reminders.json")
+        if time:
+            self.reminder_list[str(poll.id)] = {
+                "type": "public",
+                "time": str(local_time),
+                "channel": interaction.channel.id,
+                "author": interaction.user.id,
+                "reactions": reactions,
+            }
+            self.save_reminders()
 
-        await interaction.followup.send(
-            content="Poll created successfully!\n"
-            + f"Use `/poll edit {poll.id}` to modify the time if needed!",
-            ephemeral=True,
-        )
+            await interaction.followup.send(
+                "Poll created successfully!\n"
+                + f"Use `/poll edit {poll.id}` to modify the time if needed!",
+                ephemeral=True,
+            )
+        else:
+            # Timeless polls aren't tracked, so /poll edit can't manage them.
+            await interaction.followup.send(
+                "Poll created successfully!",
+                ephemeral=True,
+            )
 
     @poll_group.command(
         name="private",
@@ -375,35 +468,44 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
     async def private_poll(
         self,
         interaction: Interaction,
-        message: str,
+        message: app_commands.Range[str, 1, 1024],
         time: str,
-        option1: str,
-        option2: str,
-        option3: str | None,
-        option4: str | None,
-        option5: str | None,
+        option1: app_commands.Range[str, 1, 80],
+        option2: app_commands.Range[str, 1, 80],
+        option3: app_commands.Range[str, 1, 80] | None,
+        option4: app_commands.Range[str, 1, 80] | None,
+        option5: app_commands.Range[str, 1, 80] | None,
         thread: bool = True,
     ) -> None:
         await interaction.response.defer(thinking=True, ephemeral=True)
 
-        matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
-        if not matched_time:
+        parsed = parse_timestamp(time)
+        if parsed is None:
             await interaction.followup.send(
-                f"{time} is not a valid timestamp. Use https://hammertime.cyou "
-                + "for an easier conversion. Use America/New York as timezone.",
+                f"{time} {_BAD_TIMESTAMP_HINT}",
                 ephemeral=True,
             )
             return
 
-        timestamp = int(matched_time.group(1))
-        utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-        local_time = utc_dt.astimezone(zoneinfo.ZoneInfo("America/New_York"))
-        long_tag = f"<t:{timestamp}:F>"
+        local_time, long_tag = parsed
+        if local_time <= datetime.now(BOT_TIMEZONE):
+            await interaction.followup.send(
+                f"{time} is in the past. Pick a time in the future for the poll to end.",
+                ephemeral=True,
+            )
+            return
 
-        options: list[str | None] = [option1, option2, option3, option4, option5]
-        options_content = [option for option in options if option]
+        options_content = [
+            o for o in (option1, option2, option3, option4, option5) if o
+        ]
 
-        view = PrivatePollView(options=options_content)
+        # Votes are counted by label, so duplicate labels would silently merge.
+        if len(set(options_content)) != len(options_content):
+            await interaction.followup.send(
+                "Two options share the same label. Give each option a unique name.",
+                ephemeral=True,
+            )
+            return
 
         if interaction.channel is None or not isinstance(
             interaction.channel, discord.TextChannel
@@ -414,43 +516,32 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             )
             return
 
-        poll = await interaction.channel.send(
-            embed=discord.Embed(
-                title=f"Poll: {message}",
-            ),
-            view=view,
-        )
-        embed = poll.embeds[0]
+        # Share one votes dict between the view and the reminder metadata so votes
+        # recorded by the buttons survive the reminders loop's periodic saves.
+        votes: dict[str, str] = {}
+        view = PrivatePollView(options=options_content, cog=self, votes=votes)
 
-        if time:
-            embed.description = f"The poll ends at {long_tag}!\n"
-            await poll.edit(embed=embed)
+        description = f"**{message}**\n\nThis poll ends at {long_tag}!"
+        embed = discord.Embed(title="Poll", description=description)
+        poll = await interaction.channel.send(embed=embed, view=view)
 
         if thread:
-            discussion = await poll.create_thread(
-                name=f"{message} - Discussion",
-            )
-            embed.description = (
-                embed.description or ""
-            ) + f"\n[Discussion]({discussion.jump_url})"
+            discussion = await poll.create_thread(name=truncate_thread_name(message))
+            embed.description = f"{description}\n\n[Discussion]({discussion.jump_url})"
             await poll.edit(embed=embed)
 
-        self.active_private_polls[int(poll.id)] = view
+        self.active_private_polls[poll.id] = view
 
-        self.reminder_list.update(
-            {
-                str(poll.id): {
-                    "type": "private",
-                    "time": str(local_time),
-                    "channel": interaction.channel.id,
-                    "author": interaction.user.id,
-                    "options": options_content,
-                    "votes": {},
-                }
-            }
-        )
+        self.reminder_list[str(poll.id)] = {
+            "type": "private",
+            "time": str(local_time),
+            "channel": interaction.channel.id,
+            "author": interaction.user.id,
+            "options": options_content,
+            "votes": votes,
+        }
 
-        JsonHelper.save_json(self.reminder_list, "json/reminders.json")
+        self.save_reminders()
 
         await interaction.followup.send(
             "Poll created successfully!\n"
@@ -486,19 +577,21 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             )
             return
 
-        matched_time = re.match(r"<t:(\d+):[a-zA-Z]?>", time)
-        if not matched_time:
+        parsed = parse_timestamp(time)
+        if parsed is None:
             await interaction.followup.send(
-                f"{time} is not a valid timestamp. Use https://hammertime.cyou "
-                + "for an easier conversion. Use America/New York as timezone.",
+                f"{time} {_BAD_TIMESTAMP_HINT}",
                 ephemeral=True,
             )
             return
 
-        timestamp = int(matched_time.group(1))
-        utc_dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-        local_time = utc_dt.astimezone(zoneinfo.ZoneInfo("America/New_York"))
-        long_tag = f"<t:{timestamp}:F>"
+        local_time, long_tag = parsed
+        if local_time <= datetime.now(BOT_TIMEZONE):
+            await interaction.followup.send(
+                f"{time} is in the past. Pick a time in the future for the poll to end.",
+                ephemeral=True,
+            )
+            return
 
         if message_id not in self.reminder_list:
             await interaction.followup.send(
@@ -507,27 +600,24 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             )
             return
 
-        if interaction.channel is None or not isinstance(
-            interaction.channel, discord.TextChannel
-        ):
+        channel = self._resolve_poll_channel(message_id)
+        if channel is None:
             await interaction.followup.send(
-                "This command must be used in a text channel.",
+                f"The channel for poll {message_id} no longer exists.",
                 ephemeral=True,
             )
             return
 
-        message_get: discord.message.Message = await interaction.channel.fetch_message(
-            int(message_int)
-        )
-
-        if not message_get:
+        try:
+            message = await channel.fetch_message(message_int)
+        except discord.NotFound:
             await interaction.followup.send(
-                f"{message_id} does not exist. Is it in this channel or was it deleted?",
+                f"{message_id} does not exist. Was it deleted?",
                 ephemeral=True,
             )
             return
 
-        embed: discord.embeds.Embed = message_get.embeds[0]
+        embed = message.embeds[0]
 
         if embed.description is None:
             await interaction.followup.send(
@@ -536,19 +626,12 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             )
             return
 
-        edited_description = re.sub(
-            r"This poll ends at <t:\d+:[A-Za-z]?>",
-            f"This poll ends at {long_tag} (updated)",
-            embed.description,
-            flags=re.MULTILINE,
-        )
+        embed.description = replace_end_time(embed.description, long_tag)
+        await message.edit(embed=embed)
 
-        embed.description = edited_description
-        await message_get.edit(embed=embed)
+        self.reminder_list[message_id]["time"] = str(local_time)
 
-        self.reminder_list[message_id].update({"time": str(local_time)})
-
-        JsonHelper.save_json(self.reminder_list, "json/reminders.json")
+        self.save_reminders()
 
         await interaction.followup.send(
             f"{time} is the new end time/date for that poll!",
@@ -581,41 +664,41 @@ class PollCog(Cog, name="Polls", description="Manages THPSBot's polls."):
             )
             return
 
-        if interaction.channel is None or not isinstance(
-            interaction.channel, discord.TextChannel
-        ):
+        if message_id not in self.reminder_list:
             await interaction.followup.send(
-                "This command must be used in a text channel.",
+                f"{message_id} is not in the polls list.",
                 ephemeral=True,
             )
             return
 
-        message = await interaction.channel.fetch_message(message_int)
-
-        if not message:
+        channel = self._resolve_poll_channel(message_id)
+        if channel is None:
             await interaction.followup.send(
-                f"{message_int} does not exist. Is it in this channel or was it deleted?",
+                f"The channel for poll {message_id} no longer exists.",
                 ephemeral=True,
             )
             return
 
-        local_time = datetime.now(zoneinfo.ZoneInfo("America/New_York"))
-        long_tag = f"<t:{int((local_time).timestamp())}:F>"
+        try:
+            message = await channel.fetch_message(message_int)
+        except discord.NotFound:
+            await interaction.followup.send(
+                f"{message_int} does not exist. Was it deleted?",
+                ephemeral=True,
+            )
+            return
+
+        local_time = datetime.now(BOT_TIMEZONE)
+        long_tag = f"<t:{int(local_time.timestamp())}:F>"
 
         embed = message.embeds[0]
 
         if embed.description:
-            edited_description = re.sub(
-                r"This poll ends at <t:\d+:[A-Za-z]?>",
-                f"This poll ends at {long_tag} (updated)",
-                embed.description,
-                flags=re.MULTILINE,
-            )
-            embed.description = edited_description
-        embed.title = (embed.title or "Poll") + " (ENDED EARLY)"
+            embed.description = replace_end_time(embed.description, long_tag)
+        embed.title = truncate_title_suffix(embed.title or "Poll", " (ENDED EARLY)")
         await message.edit(embed=embed)
 
-        self.reminder_list[message_id].update({"time": str(local_time)})
+        self.reminder_list[message_id]["time"] = str(local_time)
         await self._check_reminders()
 
         await interaction.followup.send(

@@ -80,6 +80,7 @@ class StreamingCog(
         )
 
         self.stream_loop.start()
+        self.check_twitch_names.start()
 
     async def cog_unload(self) -> None:
         self.bot.tree.remove_command(
@@ -90,6 +91,7 @@ class StreamingCog(
         await self.ttv_client.close()
 
         self.stream_loop.cancel()
+        self.check_twitch_names.cancel()
 
     @tasks.loop(minutes=1)
     @TaskHelper.safe_task
@@ -176,6 +178,7 @@ class StreamingCog(
                                 "user_id": user.id,
                                 "thpsrun_id": player_id,
                                 "src_username": src_username,
+                                "login": stream.user_login,
                                 "embed": embed_stream.id,
                                 "role": role_msg.id,
                                 "game": stream.game_name,
@@ -208,7 +211,8 @@ class StreamingCog(
 
             remove_stream = []
             for user, messages in self.live.items():
-                stream = await first(self.ttv_client.get_streams(user_login=[user]))
+                login = messages.get("login", user)
+                stream = await first(self.ttv_client.get_streams(user_login=[login]))
 
                 if stream is None or stream.game_id not in self.stream_game_lookup:
                     if messages["check"] >= TTV_TIMEOUT:
@@ -261,45 +265,63 @@ class StreamingCog(
 
             if len(remove_stream) > 0:
                 for stream in remove_stream:
-                    archive = await first(
-                        self.ttv_client.get_videos(
-                            user_id=self.live[stream]["user_id"],
-                            video_type=VideoType.ARCHIVE,
-                            first=1,
-                            sort=SortMethod.TIME,
-                        )
-                    )
-
+                    # Wrap the whole per-stream body so one bad stream can't abort
+                    # cleanup of the others (and the save at the end of the tick).
                     try:
-                        await AIOHTTPHelper.delete(
-                            url=f"{THPS_RUN_API}/streams/{self.live[stream]['thpsrun_id']}",
-                            headers=self.bot.thpsrun_header,
+                        archive = await first(
+                            self.ttv_client.get_videos(
+                                user_id=self.live[stream]["user_id"],
+                                video_type=VideoType.ARCHIVE,
+                                first=1,
+                                sort=SortMethod.TIME,
+                            )
                         )
+
+                        try:
+                            await AIOHTTPHelper.delete(
+                                url=f"{THPS_RUN_API}/streams/{self.live[stream]['thpsrun_id']}",
+                                headers=self.bot.thpsrun_header,
+                            )
+                        except Exception as exc:
+                            self.bot._log.error(
+                                "streams DELETE failed for %s: %s", stream, exc
+                            )
+
+                        await self.stream_thread.send(
+                            embed=EmbedCreator.twitch_offline_embed(
+                                stream_name=stream,
+                                stream_game=self.live[stream]["game"],
+                                twitch_pfp=self.live[stream]["pfp"],
+                                started_at=self.live[stream]["started_at"],
+                                archive_video=archive.url if archive else None,
+                            )
+                        )
+
+                        # A tracked message may have been deleted manually; if its fetch raises
+                        # NotFound it would abort the tick and resend the offline embed every minute
+                        try:
+                            remove_embed = await self.stream_channel.fetch_message(
+                                self.live[stream]["embed"]
+                            )
+                            await remove_embed.delete()
+                        except discord.errors.NotFound:
+                            pass
+
+                        try:
+                            remove_role = await self.stream_channel.fetch_message(
+                                self.live[stream]["role"]
+                            )
+                            await remove_role.delete()
+                        except discord.errors.NotFound:
+                            pass
                     except Exception as exc:
                         self.bot._log.error(
-                            "streams DELETE failed for %s: %s", stream, exc
+                            "stream cleanup failed for %s: %s", stream, exc
                         )
-
-                    await self.stream_thread.send(
-                        embed=EmbedCreator.twitch_offline_embed(
-                            stream_name=stream,
-                            stream_game=self.live[stream]["game"],
-                            twitch_pfp=self.live[stream]["pfp"],
-                            started_at=self.live[stream]["started_at"],
-                            archive_video=archive.url if archive else None,
-                        )
-                    )
-
-                    remove_embed = await self.stream_channel.fetch_message(
-                        self.live[stream]["embed"]
-                    )
-                    remove_role = await self.stream_channel.fetch_message(
-                        self.live[stream]["role"]
-                    )
-
-                    await remove_embed.delete()
-                    await remove_role.delete()
-                    self.live.pop(stream, None)
+                    finally:
+                        # Always drop the stream so the offline embed isn't re-sent
+                        # on the next tick.
+                        self.live.pop(stream, None)
 
             JsonHelper.save_json(self.live, "json/live.json")
 
@@ -331,8 +353,16 @@ class StreamingCog(
             self.thps_game_lookup = lookup
 
     @stream_loop.before_loop
-    async def before_status_loop(self) -> None:
-        await self.check_twitch_names()
+    async def before_status_loop(
+        self,
+    ) -> None:
+        await self._check_twitch_names_impl()
+
+    @check_twitch_names.before_loop
+    async def before_check_twitch_names(
+        self,
+    ) -> None:
+        await asyncio.sleep(3600)
 
     ###########################################################################
     # stream_group Commands
@@ -347,12 +377,20 @@ class StreamingCog(
         description="Modifies the games looked up by THPSBot to the Twitch API.",
     )
     @app_commands.describe(
-        action="Add a game to the lookup table",
+        action="Add or remove a game from the lookup table",
         name="Name of the game. EXACT MATCH ONLY!",
     )
-    @app_commands.choices(action=[app_commands.Choice(name="add", value="add")])
+    @app_commands.choices(
+        action=[
+            app_commands.Choice(name="add", value="add"),
+            app_commands.Choice(name="remove", value="remove"),
+        ]
+    )
     async def stream_game(
-        self, interaction: Interaction, action: app_commands.Choice[str], name: str
+        self,
+        interaction: Interaction,
+        action: app_commands.Choice[str],
+        name: str,
     ) -> None:
         await interaction.response.defer(thinking=True, ephemeral=True)
 
@@ -379,8 +417,44 @@ class StreamingCog(
                             f"{name} was not added. That game's Twitch ID already exists.",
                             ephemeral=True,
                         )
+                else:
+                    await interaction.followup.send(
+                        f"{name} was not added. The Twitch category could not be found.",
+                        ephemeral=True,
+                    )
             else:
                 await interaction.followup.send(
                     f"{name} was not added. Did you spell it right? Does the category exist?",
+                    ephemeral=True,
+                )
+        elif action.value == "remove":
+            if name not in self.ttv_games:
+                await interaction.followup.send(
+                    f"{name} is not in the lookup table.",
+                    ephemeral=True,
+                )
+                return
+
+            game = await first(self.ttv_client.get_games(names=[name]))
+
+            self.ttv_games.remove(name)
+            id_unresolved = False
+            if game and game.id in self.stream_game_lookup:
+                self.stream_game_lookup.remove(game.id)
+            else:
+                id_unresolved = True
+
+            JsonHelper.save_json(self.stream_game_lookup, "json/ttvgame_ids.json")
+            JsonHelper.save_json(self.ttv_games, "json/ttvgames.json")
+
+            if id_unresolved:
+                await interaction.followup.send(
+                    f"{name} was removed, but its Twitch ID could not be resolved, "
+                    "so it may still be in the ID lookup table. Anastasia may need to look into it",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.followup.send(
+                    f"{name} has been removed from the lookup table.",
                     ephemeral=True,
                 )
