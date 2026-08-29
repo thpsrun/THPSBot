@@ -2,7 +2,7 @@ import os
 import shutil
 
 
-def setup_json():
+def setup_json() -> None:
     json_dir = "json/"
     os.makedirs(json_dir, exist_ok=True)
 

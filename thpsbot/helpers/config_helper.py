@@ -1,12 +1,16 @@
+import logging
 import os
 
 from dotenv import load_dotenv
 
 from thpsbot.helpers.json_helper import JsonHelper
+from thpsbot.helpers.setup_json import setup_json
 
 load_dotenv()
 
 ENV: str = "primary" if os.getenv("DEBUG") == "False" else "dev"
+
+setup_json()
 
 AWARDS_LIST: dict[str, dict] = JsonHelper.load_json("json/awards.json")
 CHANNELS_LIST: dict[str, dict] = JsonHelper.load_json("json/channels.json")
@@ -45,3 +49,39 @@ DISCORD_KEY: str = (
     if os.getenv("DEBUG") == "False"
     else os.getenv("DISCORD_BETA_KEY", "")
 )
+
+
+def validate_config() -> None:
+    """Fail fast at boot if the active ENV is missing required config values."""
+    # Token comes from .env; the rest come from the active half of channels.json.
+    token_var = "DISCORD_PRIMARY_KEY" if ENV == "primary" else "DISCORD_BETA_KEY"
+    problems: list[str] = []
+
+    if not DISCORD_KEY:
+        problems.append(f"  - .env: {token_var} is empty")
+
+    channel_checks: list[tuple[int, str]] = [
+        (GUILD_ID, f'channels.json["{ENV}"]["server"]'),
+        (ERROR_CHANNEL, f'channels.json["{ENV}"]["error"]'),
+        (SUBMISSION_CHANNEL, f'channels.json["{ENV}"]["submission"]'),
+        (PB_WR_CHANNEL, f'channels.json["{ENV}"]["pb"]'),
+        (STREAM_CHANNEL, f'channels.json["{ENV}"]["stream"]["main"]'),
+        (STREAM_OFF_THREAD, f'channels.json["{ENV}"]["stream"]["thread"]'),
+    ]
+    for value, key in channel_checks:
+        if value == 0:
+            problems.append(f"  - runtime json/channels.json: {key} is unset (0)")
+
+    if problems:
+        log = logging.getLogger("THPSBot")
+        message = (
+            f"Configuration is incomplete for ENV={ENV!r}. Fix the following, then "
+            "restart:\n"
+            + "\n".join(problems)
+            + "\n\nEdit the runtime json/channels.json (NOT the .json/ templates) and "
+            "fill in the real Discord server/channel IDs, and set the Discord token in "
+            ".env."
+        )
+        log.critical(message)
+        print(message)
+        raise SystemExit(1)

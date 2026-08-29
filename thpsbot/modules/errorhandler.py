@@ -14,7 +14,7 @@ async def setup(bot: "THPSBot"):
     cog = ErrorHandler(bot)
     await bot.add_cog(cog)
 
-    bot.tree.on_error = cog.on_app_command_error
+    bot.tree.on_error = cog.on_app_command_error  # type: ignore
 
 
 async def teardown(bot: "THPSBot"):
@@ -46,18 +46,32 @@ class ErrorHandler(
         self.bot._log.error(f"EVENT:{event_method}", exc_info=error)
         sentry_sdk.capture_exception(error)
 
+    async def _respond(
+        self,
+        interaction: Interaction,
+        content: str,
+    ) -> None:
+        """Send an ephemeral error message, picking the right path for the interaction state."""
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(content, ephemeral=True)
+            else:
+                await interaction.response.send_message(content, ephemeral=True)
+        except discord.HTTPException:
+            pass
+
     async def on_app_command_error(
         self, interaction: Interaction, error: app_commands.AppCommandError
     ) -> None:
         if isinstance(error, app_commands.CheckFailure):
-            await interaction.response.send_message(
+            await self._respond(
+                interaction,
                 "You do not have the permissions to run this command.",
-                ephemeral=True,
             )
         elif isinstance(error, app_commands.errors.CommandInvokeError):
-            await interaction.response.send_message(
+            await self._respond(
+                interaction,
                 "An error occurred when looking up that object. Does it exist?",
-                ephemeral=True,
             )
 
             self.bot._log.error("COMMAND_ERROR", exc_info=error)
@@ -66,30 +80,28 @@ class ErrorHandler(
         elif isinstance(error, discord.Forbidden) or isinstance(
             error, app_commands.errors.BotMissingPermissions
         ):
-            await interaction.response.send_message(
+            await self._respond(
+                interaction,
                 "An error occurred. Does the bot have the right permissions to do this?",
-                ephemeral=True,
             )
 
             self.bot._log.error("FORBIDDEN", exc_info=error)
         elif isinstance(error, discord.NotFound):
-            await interaction.response.send_message(
+            await self._respond(
+                interaction,
                 "An error occurred. That content was not found.",
-                ephemeral=True,
             )
 
             self.bot._log.error("NOTFOUND", exc_info=error)
         elif isinstance(error, discord.HTTPException):
-            await interaction.response.send_message(
+            await self._respond(
+                interaction,
                 "An error occurred with Discord's API. Try again?",
-                ephemeral=True,
             )
 
             self.bot._log.exception("HTTP_EXCEPTION", exc_info=error)
         elif isinstance(error, discord.ClientException):
-            await interaction.response.send_message(
-                "An unknown error occurred", ephemeral=True
-            )
+            await self._respond(interaction, "An unknown error occurred")
 
             self.bot._log.exception("CLIENT_EXCEPTION", exc_info=error)
             sentry_sdk.capture_exception(error)
@@ -105,15 +117,9 @@ class ErrorHandler(
         elif isinstance(error, discord.DiscordServerError):
             self.bot._log.error("SERVER_ERROR", exc_info=error)
         else:
-            if interaction.response.is_done():
-                await interaction.followup.send(
-                    "An unexpected error occurred. Check logs.",
-                    ephemeral=True,
-                )
-            else:
-                await interaction.response.send_message(
-                    "An unexpected error occurred. Check logs.",
-                    ephemeral=True,
-                )
+            await self._respond(
+                interaction,
+                "An unexpected error occurred. Check logs.",
+            )
 
             self.bot._log.error("UNKNOWN", exc_info=error)

@@ -12,6 +12,7 @@ from thpsbot.models import (
     THPSRunCategory,
     THPSRunGame,
     THPSRunHistory,
+    THPSRunHistoryEntry,
     THPSRunLevel,
     THPSRunRuns,
 )
@@ -55,7 +56,7 @@ class THPSRunHelper:
     ) -> str:
         hours, remainder = divmod(int(seconds), 3600)
         minutes, seconds_int = divmod(remainder, 60)
-        milliseconds = int(round((seconds - int(seconds)) * 1000))
+        milliseconds = round((seconds - int(seconds)) * 1000)
 
         return f"{hours}:{minutes:02}:{seconds_int:02}" + (
             f".{milliseconds:03}" if milliseconds > 0 else ""
@@ -64,6 +65,7 @@ class THPSRunHelper:
     @staticmethod
     def get_run_data(
         data: THPSRunRuns,
+        is_tie: bool = False,
     ) -> THPSRunHelperResponse | None:
         embed_title = (
             data.game.name if isinstance(data.game, THPSRunGame) else (data.game or "")
@@ -75,7 +77,8 @@ class THPSRunHelper:
         if data.obsolete:
             embed_title = "(PB) " + embed_title
         elif data.place == 1:
-            embed_title = "\U0001f3c6 (WR) " + embed_title + " \U0001f3c6"
+            label = "(TWR)" if is_tie else "(WR)"
+            embed_title = f"\U0001f3c6 {label} " + embed_title + " \U0001f3c6"
         elif data.place == 2:
             embed_title = "\U0001f948 (PB) " + embed_title + " \U0001f948"
         elif data.place == 3:
@@ -167,7 +170,10 @@ class THPSRunHelper:
         if not resp.ok or not isinstance(resp.data, list):
             return {"record": None}
 
+        # The query pins place=1, so every board-matching player is a co-holder of the WR.
+        # Collect their ids to distinguish a sole record from a tie; keep the first as the WR.
         wr: THPSRunRuns | None = None
+        place1_ids: set[str] = set()
         for raw in resp.data:
             candidate = THPSRunRuns(**raw)
             cand_level = (
@@ -176,8 +182,9 @@ class THPSRunHelper:
                 else candidate.level
             )
             if cand_level == level_id and candidate.variables == run.variables:
-                wr = candidate
-                break
+                place1_ids.add(candidate.id)
+                if wr is None:
+                    wr = candidate
 
         if wr is None:
             return {"record": None}
@@ -196,7 +203,17 @@ class THPSRunHelper:
             "wr_time": wr.times.p_time,
             "delta_secs": delta,
             "is_record": delta <= 0,
+            "is_tie": THPSRunHelper._is_tie(place1_ids, run.id, run.place),
         }
+
+    @staticmethod
+    def _is_tie(
+        place1_ids: set[str],
+        run_id: str,
+        run_place: int,
+    ) -> bool:
+        """True when a run sits at place 1 and a distinct run also holds place 1 (a shared WR)."""
+        return run_place == 1 and bool(place1_ids - {run_id})
 
     @staticmethod
     async def _resolve_value_slugs(
@@ -286,11 +303,153 @@ class THPSRunHelper:
         return f"{THPS_RUN_SITE}/{path}"
 
     @staticmethod
+    def _player_link(
+        name: str,
+    ) -> str:
+        """Markdown link to a player's thps.run profile."""
+        return f"[{name}]({THPS_RUN_SITE}/player/{name})"
+
+    @staticmethod
+    def format_reign_subtext(
+        entries: list[THPSRunHistoryEntry],
+        run_id: str,
+        run_secs: float | None,
+        now: datetime | None = None,
+    ) -> str | None:
+        """Build the WR line for a run from its board history. Return None if otherwise.
+
+        Arguments:
+            entries (list[THPSRunHistoryEntry]): The board's full WR history.
+            run_id (str): The id of the run being announced.
+            run_secs (float | None): The run's time in seconds (used for the sole-WR gap).
+            now (datetime | None): Override for "now" (testing); defaults to the current time.
+        """
+        current = next((e for e in entries if e.run_id == run_id), None)
+        if current is None or current.end_date is not None:
+            return None
+
+        co_holders = any(
+            e.run_id != run_id
+            and e.end_date is None
+            and e.history_time_secs == current.history_time_secs
+            for e in entries
+        )
+        if co_holders:
+            return THPSRunHelper._format_tie_line(entries, current, now)
+        return THPSRunHelper._format_previous_holder_line(entries, run_id, run_secs)
+
+    @staticmethod
+    def _format_tie_line(
+        entries: list[THPSRunHistoryEntry],
+        current: THPSRunHistoryEntry,
+        now: datetime | None,
+    ) -> str | None:
+        dated: list[tuple[datetime, THPSRunHistoryEntry]] = []
+        for e in entries:
+            if (
+                e.end_date is None
+                and e.history_time_secs == current.history_time_secs
+                and e.start_date
+            ):
+                dated.append((datetime.fromisoformat(e.start_date), e))
+        if not dated:
+            return None
+
+        first_start, first = min(dated, key=lambda t: t[0])
+        first_name = first.players[0].name if first.players else None
+        if not first_name:
+            return None
+
+        time_label = current.history_time or ""
+        line = (
+            f"\n-# Tied WR: {time_label} first set by "
+            f"{THPSRunHelper._player_link(first_name)}"
+        )
+
+        moment = now or datetime.now(first_start.tzinfo)
+        if moment > first_start:
+            line += f", standing {format_reign(first_start, moment)}"
+
+        others: list[str] = []
+        for _, e in dated:
+            if e.run_id in (first.run_id, current.run_id):
+                continue
+            name = e.players[0].name if e.players else None
+            if name:
+                others.append(name)
+        if others:
+            links = ", ".join(THPSRunHelper._player_link(n) for n in others)
+            line += f" (also held by {links})"
+
+        return line + "."
+
+    @staticmethod
+    def _format_previous_holder_line(
+        entries: list[THPSRunHistoryEntry],
+        run_id: str,
+        run_secs: float | None,
+    ) -> str | None:
+        """Render the 'Last WR Holder ... lasted ...' text for a genuine (non-tied) WR."""
+        ranked: list[tuple[datetime, float, float, THPSRunHistoryEntry]] = []
+        for e in entries:
+            if e.run_id == run_id or not e.end_date or not e.start_date:
+                continue
+            ranked.append(
+                (
+                    datetime.fromisoformat(e.end_date),
+                    -(e.history_time_secs or 0.0),
+                    -datetime.fromisoformat(e.start_date).timestamp(),
+                    e,
+                )
+            )
+        if not ranked:
+            return None
+
+        prev = max(ranked, key=lambda t: t[:3])[3]
+
+        prev_start = prev.start_date
+        prev_end = prev.end_date
+        if not prev_start or not prev_end:
+            return None
+        start = datetime.fromisoformat(prev_start)
+        end = datetime.fromisoformat(prev_end)
+        if end <= start:
+            return None
+
+        name = prev.players[0].name if prev.players else None
+        if not name:
+            return None
+        holder = THPSRunHelper._player_link(name)
+
+        if prev.history_time:
+            link = prev.arch_video or prev.video
+            time_part = (
+                f" ([{prev.history_time}]({link}))"
+                if link
+                else f" ({prev.history_time})"
+            )
+        else:
+            time_part = ""
+
+        gap = ""
+        if run_secs is not None and prev.history_time_secs is not None:
+            diff = run_secs - prev.history_time_secs
+            if diff < 0:
+                formatted = format_gap(diff)
+                if formatted:
+                    gap = f" [-{formatted}]"
+
+        return (
+            f"\n-# Last WR Holder: {holder}{time_part}{gap}"
+            f"\n-# The last record lasted {format_reign(start, end)}."
+        )
+
+    @staticmethod
     async def get_wr_reign(
         bot: "THPSBot",
         run: THPSRunRuns,
     ) -> str | None:
-        """Subtext line naming the previous WR holder and how long it lasted, or None."""
+        """Fetch a run's board history and render its WR-reign subtext (sole record or tie)."""
         game = run.game if isinstance(run.game, THPSRunGame) else None
         category = run.category if isinstance(run.category, THPSRunCategory) else None
         if not (game and game.slug and category and category.slug):
@@ -317,59 +476,10 @@ class THPSRunHelper:
                 return None
 
             history = THPSRunHistory(**resp.data)
-
-            current = next((e for e in history.entries if e.run_id == run.id), None)
-            if current is None or current.end_date is not None:
-                return None
-
-            candidates = [
-                e
-                for e in history.entries
-                if e.run_id != run.id and e.end_date and e.start_date
-            ]
-            if not candidates:
-                return None
-
-            prev = max(
-                candidates,
-                key=lambda e: (
-                    datetime.fromisoformat(e.end_date),
-                    -(e.history_time_secs or 0.0),
-                    -datetime.fromisoformat(e.start_date).timestamp(),
-                ),
-            )
-            start = datetime.fromisoformat(prev.start_date)
-            end = datetime.fromisoformat(prev.end_date)
-            if end <= start:
-                return None
-
-            name = prev.players[0].name if prev.players else None
-            if not name:
-                return None
-            holder = f"[{name}]({THPS_RUN_SITE}/player/{name})"
-
-            if prev.history_time:
-                link = prev.arch_video or prev.video
-                time_part = (
-                    f" ([{prev.history_time}]({link}))"
-                    if link
-                    else f" ({prev.history_time})"
-                )
-            else:
-                time_part = ""
-
-            gap = ""
-            r_secs = run.times.p_time_secs
-            if r_secs is not None and prev.history_time_secs is not None:
-                diff = r_secs - prev.history_time_secs
-                if diff < 0:
-                    formatted = format_gap(diff)
-                    if formatted:
-                        gap = f" [-{formatted}]"
-
-            return (
-                f"\n-# Last WR Holder: {holder}{time_part}{gap}"
-                f"\n-# The last record lasted {format_reign(start, end)}."
+            return THPSRunHelper.format_reign_subtext(
+                history.entries,
+                run.id,
+                run.times.p_time_secs,
             )
         except Exception as e:
             _log.warning("get_wr_reign failed for %s", run.id, exc_info=e)

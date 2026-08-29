@@ -1,12 +1,8 @@
 # syntax=docker/dockerfile:1
-FROM python:3.14.5-bookworm
+FROM python:3.14.6-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends  build-essential libpq-dev \
-  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt

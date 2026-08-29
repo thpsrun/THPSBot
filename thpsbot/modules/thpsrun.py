@@ -79,7 +79,7 @@ class THPSRunCog(
 
         if not isinstance(submit_ch, discord.TextChannel):
             raise RuntimeError("SUBMISSION_CHANNEL is not a TextChannel")
-        if not isinstance(pb_ch, discord.TextChannel):
+        elif not isinstance(pb_ch, discord.TextChannel):
             raise RuntimeError("PB_WR_CHANNEL is not a TextChannel")
 
         self.submit_channel = submit_ch
@@ -137,7 +137,6 @@ class THPSRunCog(
                     warnings = await THPSRunHelper.get_import_issues(self.bot, run.id)
                     player_pfp = await self._fetch_player_pfp(run)
 
-                    board_url = await THPSRunHelper.build_leaderboard_url(self.bot, run)
                     embed, view = EmbedCreator.submission_embed(
                         title=run_data.embed_title,
                         subcategory=run.subcategory,
@@ -167,123 +166,123 @@ class THPSRunCog(
 
         remove_run = []
         for run_id in self.submissions:
-            resp = await AIOHTTPHelper.get(
-                url=f"{THPS_RUN_API}/runs/{run_id}?embed=game,category,level,platform",
-                headers=self.thpsrun_header,
-            )
-
-            if resp.status == 404:
-                try:
-                    embed_msg = await self.submit_channel.fetch_message(
-                        self.submissions[run_id]["submission"]
-                    )
-                    await embed_msg.delete()
-                except discord.NotFound:
-                    pass
-
-                if self.submissions[run_id]["role"]:
-                    try:
-                        role_msg = await self.submit_channel.fetch_message(
-                            self.submissions[run_id]["role"]
-                        )
-                        await role_msg.delete()
-                    except discord.NotFound:
-                        pass
-
-                remove_run.append(run_id)
-                continue
-
-            if not resp.ok or not isinstance(resp.data, dict):
-                continue
-
-            run_verify = THPSRunRuns(**resp.data)
-
-            if run_verify.vid_status == "verified":
-                run_data = THPSRunHelper.get_run_data(run_verify)
-
-                if run_data:
-                    record = await THPSRunHelper.get_record_delta(self.bot, run_verify)
-                    if record is None or record.get("record", "x") is None:
-                        time_delta: str | None = "No Previous WR"
-                    elif record.get("is_record"):
-                        time_delta = None
-                    else:
-                        delta_fmt = THPSRunHelper.format_time(record["delta_secs"])
-                        time_delta = f"{record['wr_time']} [+{delta_fmt}]"
-
-                    wr_reign = None
-                    if record and record.get("is_record"):
-                        wr_reign = await THPSRunHelper.get_wr_reign(
-                            self.bot, run_verify
-                        )
-
-                    platform_name = (
-                        run_verify.platform.name
-                        if isinstance(run_verify.platform, THPSRunPlatform)
-                        else (run_verify.platform or "Unknown")
-                    )
-                    player_pfp = await self._fetch_player_pfp(run_verify)
-
-                    board_url = await THPSRunHelper.build_leaderboard_url(
-                        self.bot, run_verify
-                    )
-                    embed, view = EmbedCreator.approved_embed(
-                        title=run_data.embed_title,
-                        subcategory=run_verify.subcategory or "",
-                        url=run_verify.url,
-                        player=run_data.players,
-                        player_pfp=player_pfp,
-                        placement=run_verify.place,
-                        points=run_verify.points or 0,
-                        platform=platform_name,
-                        time=run_data.time,
-                        time_delta=time_delta,
-                        completed_runs=None,
-                        run_type=run_data.run_type,
-                        description=run_verify.description,
-                        approval=run_verify.v_date,
-                        obsolete=run_verify.obsolete,
-                        wr_reign=wr_reign,
-                        board_url=board_url,
-                    )
-                    await self.pb_channel.send(
-                        embed=embed,
-                        view=view,
-                    )
-
-                    embed_msg = await self.submit_channel.fetch_message(
-                        self.submissions[run_id]["submission"]
-                    )
-                    await embed_msg.delete()
-
-                    if self.submissions[run_id]["role"]:
-                        role_msg = await self.submit_channel.fetch_message(
-                            self.submissions[run_id]["role"]
-                        )
-                        await role_msg.delete()
-
-                    remove_run.append(run_id)
-            elif run_verify.vid_status == "rejected":
-                embed_msg = await self.submit_channel.fetch_message(
-                    self.submissions[run_id]["submission"]
-                )
-                await embed_msg.delete()
-
-                if self.submissions[run_id]["role"]:
-                    role_msg = await self.submit_channel.fetch_message(
-                        self.submissions[run_id]["role"]
-                    )
-                    await role_msg.delete()
-
-                remove_run.append(run_id)
-            else:
-                continue
+            try:
+                await self._process_pending_run(run_id, remove_run)
+            except Exception as e:
+                self.bot._log.exception(e)
 
         if len(remove_run) > 0:
             for run_id in remove_run:
                 self.submissions.pop(run_id)
 
         JsonHelper.save_json(self.submissions, "json/submissions.json")
+
+    async def _delete_submission_messages(
+        self,
+        run_id: str,
+    ) -> None:
+        """Delete a pending run's submission (and optional role-ping) messages.
+
+        Each fetch/delete is guarded individually: a moderator may have manually
+        removed either message, and a NotFound there must not stop us from cleaning
+        up the run, otherwise the approval loop re-posts the embed every tick.
+        """
+        try:
+            embed_msg = await self.submit_channel.fetch_message(
+                self.submissions[run_id]["submission"]
+            )
+            await embed_msg.delete()
+        except discord.NotFound:
+            pass
+
+        if self.submissions[run_id]["role"]:
+            try:
+                role_msg = await self.submit_channel.fetch_message(
+                    self.submissions[run_id]["role"]
+                )
+                await role_msg.delete()
+            except discord.NotFound:
+                pass
+
+    async def _process_pending_run(
+        self,
+        run_id: str,
+        remove_run: list[str],
+    ) -> None:
+        """Sync a single pending run's approval status, queueing it for removal when resolved."""
+        resp = await AIOHTTPHelper.get(
+            url=f"{THPS_RUN_API}/runs/{run_id}?embed=game,category,level,platform",
+            headers=self.thpsrun_header,
+        )
+
+        if resp.status == 404:
+            await self._delete_submission_messages(run_id)
+            remove_run.append(run_id)
+            return
+
+        if not resp.ok or not isinstance(resp.data, dict):
+            return
+
+        run_verify = THPSRunRuns(**resp.data)
+
+        if run_verify.vid_status == "verified":
+            # Delta drives the title (a tie renders "(Tied WR)"), so compute it first.
+            record = await THPSRunHelper.get_record_delta(self.bot, run_verify)
+            is_tie = bool(record and record.get("is_tie"))
+            run_data = THPSRunHelper.get_run_data(run_verify, is_tie=is_tie)
+
+            if run_data:
+                if record is None or record.get("record", "x") is None:
+                    time_delta: str | None = "No Previous WR"
+                elif record.get("is_record"):
+                    time_delta = None
+                else:
+                    delta_fmt = THPSRunHelper.format_time(record["delta_secs"])
+                    time_delta = f"{record['wr_time']} [+{delta_fmt}]"
+
+                wr_reign = None
+                if record and record.get("is_record"):
+                    wr_reign = await THPSRunHelper.get_wr_reign(self.bot, run_verify)
+
+                platform_name = (
+                    run_verify.platform.name
+                    if isinstance(run_verify.platform, THPSRunPlatform)
+                    else (run_verify.platform or "Unknown")
+                )
+                player_pfp = await self._fetch_player_pfp(run_verify)
+
+                board_url = await THPSRunHelper.build_leaderboard_url(
+                    self.bot, run_verify
+                )
+                embed, view = EmbedCreator.approved_embed(
+                    title=run_data.embed_title,
+                    subcategory=run_verify.subcategory or "",
+                    url=run_verify.url,
+                    player=run_data.players,
+                    player_pfp=player_pfp,
+                    placement=run_verify.place,
+                    points=run_verify.points or 0,
+                    platform=platform_name,
+                    time=run_data.time,
+                    time_delta=time_delta,
+                    completed_runs=None,
+                    run_type=run_data.run_type,
+                    description=run_verify.description,
+                    approval=run_verify.v_date,
+                    obsolete=run_verify.obsolete,
+                    wr_reign=wr_reign,
+                    board_url=board_url,
+                )
+                await self.pb_channel.send(
+                    embed=embed,
+                    view=view,
+                )
+
+                await self._delete_submission_messages(run_id)
+                remove_run.append(run_id)
+        elif run_verify.vid_status == "rejected":
+            await self._delete_submission_messages(run_id)
+            remove_run.append(run_id)
 
     ###########################################################################
     # thpsrun_group Commands
@@ -417,7 +416,7 @@ class THPSRunCog(
             if "speedrun.com" in url:
                 run_id = THPSRunHelper.get_run_id(url.lower())
                 if run_id is None:
-                    await interaction.followup.send(
+                    await interaction.response.send_message(
                         content="Invalid Speedrun.com URL format.",
                         ephemeral=True,
                     )
@@ -437,9 +436,11 @@ class THPSRunCog(
                 return
 
             run = THPSRunRuns(**resp.data)
-            run_data = THPSRunHelper.get_run_data(run)
 
             if run.vid_status == "verified":
+                record = await THPSRunHelper.get_record_delta(self.bot, run)
+                is_tie = bool(record and record.get("is_tie"))
+                run_data = THPSRunHelper.get_run_data(run, is_tie=is_tie)
                 if run_data:
                     platform_name = (
                         run.platform.name
@@ -447,7 +448,6 @@ class THPSRunCog(
                         else (run.platform or "Unknown")
                     )
 
-                    record = await THPSRunHelper.get_record_delta(self.bot, run)
                     if record is None or record.get("record", "x") is None:
                         time_delta: str | None = "No Previous WR"
                     elif record.get("is_record"):
@@ -480,6 +480,11 @@ class THPSRunCog(
                     await interaction.response.send_message(
                         embed=embed,
                         view=view,
+                    )
+                else:
+                    await interaction.response.send_message(
+                        content=f"An error occurred looking up {url}.",
+                        ephemeral=True,
                     )
             else:
                 await interaction.response.send_message(
