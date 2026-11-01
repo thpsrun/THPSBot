@@ -1,3 +1,9 @@
+## v4.3.1
+###### November 1, 2026
+*   Fixed an issue where the bot would select a handheld or category extension game instead of the actual game the stream belongs to.
+*   Updated libraries.
+* * *
+
 ## v4.3
 ###### August 28, 2026
 *   Added

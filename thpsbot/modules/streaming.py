@@ -31,6 +31,18 @@ if TYPE_CHECKING:
     from thpsbot.main import THPSBot
 
 
+def is_stream_lookup_game(
+    game_name: str,
+) -> bool:
+    """Returns whether a thps.run game may be the target of a Twitch category match.
+
+    Twitch has one category per title, so handheld ports ("(GBA)", "(PSP)") and the
+    "Category Extensions" pseudo-games share a Twitch name with their main game. This will skip the
+    game category if those are met, in case they are shown in the wrong order.
+    """
+    return "(" not in game_name and "category extensions" not in game_name.casefold()
+
+
 async def setup(bot: "THPSBot"):
     await bot.add_cog(StreamingCog(bot))
 
@@ -348,6 +360,8 @@ class StreamingCog(
             lookup: dict[str, str] = {}
             for game in games_resp.data:
                 twitch_name = game.get("twitch")
+                if not is_stream_lookup_game(game.get("name", "")):
+                    continue
                 if twitch_name and twitch_name.casefold() not in lookup:
                     lookup[twitch_name.casefold()] = game["id"]
             self.thps_game_lookup = lookup
